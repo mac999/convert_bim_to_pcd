@@ -3,9 +3,9 @@
 A pipeline that parses and analyzes IFC models to perform the following steps in one pass: **1. automatically acquire material textures per IFC class → 2. generate a textured FBX with UV-mapped surfaces → 3. save real-coordinate RGB point clouds (LAS/LAZ) with texture colors → 4. produce per-class train datasets (txt/laz + labels.json) for deep-learning segmentation**. Results can be viewed instantly in the built-in **Flask web viewer (dark mode, Three.js)**.
 
 <p align="center">
-  <img src="./doc/img1.png" width="300"></img></br>
-  <img src="./doc/img2.png" width="300"></img></br>
-  <img src="./doc/img3.png" width="300"></img>
+  <img src="./doc/img1.png" width="500"></img></br>
+  <img src="./doc/img2.png" width="500"></img></br>
+  <img src="./doc/img3.png" width="500"></img>
 </p>
 
 *Point cloud conversion result of ac20_haus.ifc (front/top views) — plaster walls, glass windows, wooden doors, and metal beams are distinguished by texture color.*
