@@ -1,0 +1,79 @@
+{
+  "wall": {
+    "provider": "ambientCG",
+    "asset": "Plaster001",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Plaster001_1K-JPG.zip",
+    "query": "plaster wall"
+  },
+  "column": {
+    "provider": "ambientCG",
+    "asset": "Concrete034",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete034_1K-JPG.zip",
+    "query": "concrete"
+  },
+  "beam": {
+    "provider": "ambientCG",
+    "asset": "Metal063",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Metal063_1K-JPG.zip",
+    "query": "metal steel"
+  },
+  "slab": {
+    "provider": "ambientCG",
+    "asset": "Concrete048",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete048_1K-JPG.zip",
+    "query": "concrete floor"
+  },
+  "roof": {
+    "provider": "ambientCG",
+    "asset": "RoofingTiles012A",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=RoofingTiles012A_1K-JPG.zip",
+    "query": "RoofingTiles012A"
+  },
+  "door": {
+    "provider": "ambientCG",
+    "asset": "Wood089",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Wood089_1K-JPG.zip",
+    "query": "plywood"
+  },
+  "window": {
+    "provider": "ambientCG",
+    "asset": "Facade006",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Facade006_1K-JPG.zip",
+    "query": "Facade006"
+  },
+  "stair": {
+    "provider": "ambientCG",
+    "asset": "Concrete034",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete034_1K-JPG.zip",
+    "query": "concrete"
+  },
+  "railing": {
+    "provider": "ambientCG",
+    "asset": "Metal009",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Metal009_1K-JPG.zip",
+    "query": "brushed metal"
+  },
+  "covering": {
+    "provider": "ambientCG",
+    "asset": "Concrete034",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete034_1K-JPG.zip",
+    "query": "plaster"
+  },
+  "furniture": {
+    "provider": "ambientCG",
+    "asset": "WoodFloor064",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=WoodFloor064_1K-JPG.zip",
+    "query": "wood planks"
+  }
+}
