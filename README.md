@@ -6,7 +6,7 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
   <img src="./doc/img1.png" height="200"></img></br>
   <img src="./doc/img2.png" height="200"></img>
   <img src="./doc/img3.png" height="200"></img></br>
-  <img src="./doc/img4.png" height="150"></img></br>
+  <img src="./doc/img4.png" height="150"></img>
   <img src="./doc/img5.png" height="150"></img></br>
   <img src="./doc/img6.png" height="200"></img>
 </p>
