@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "convert-bim-to-pcd"
+version = "0.4.7"
+description = "IFC (BIM) to textured FBX + RGB point cloud (LAS/LAZ) converter with per-class training datasets and a Flask web viewer"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Taewook Kang", email = "laputa99999@gmail.com" }]
+keywords = ["IFC", "BIM", "point cloud", "LAS", "LAZ", "FBX", "segmentation", "ifcopenshell"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = [
+    "ifcopenshell>=0.8",
+    "laspy[lazrs]>=2.5",
+    "numpy",
+    "pillow",
+    "tqdm",
+    "aspose-3d",
+    "flask",
+]
+
+[project.urls]
+Repository = "https://github.com/mac999/Projects"
+
+[project.scripts]
+ifc2pcd = "convert_ifc_to_las:main"
+ifc2pcd-viewer = "webviewer:main"
+ifc2pcd-textures = "texture_manager:main"
+
+# Flat-module layout (no package directory). The web viewer resolves
+# templates/ relative to webviewer.py, so install in editable mode
+# (pip install -e .) to keep templates/ and config.json reachable.
+[tool.setuptools]
+py-modules = [
+    "convert_ifc_to_las",
+    "texture_manager",
+    "uv_mapping",
+    "shading_fx",
+    "fbx_exporter",
+    "webviewer",
+]

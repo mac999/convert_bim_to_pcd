@@ -1,0 +1,10 @@
+# Runtime dependencies (same as pyproject.toml).
+# ifcopenshell: pip wheels exist for 0.8+; conda-forge also works
+# (conda install -c conda-forge ifcopenshell).
+ifcopenshell>=0.8
+laspy[lazrs]>=2.5
+numpy
+pillow
+tqdm
+aspose-3d
+flask

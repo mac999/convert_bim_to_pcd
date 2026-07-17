@@ -329,16 +329,16 @@ def ensure_textures(config, textures_dir, allow_download=True, resolution="1K-JP
     return result
 
 
-if __name__ == "__main__":
-    # 단독 실행: config.json 을 읽어 모든 텍스처를 미리 받아둔다.
+def main():
+    # Standalone run: read config.json and pre-fetch every category texture.
     import argparse
     ap = argparse.ArgumentParser(description="Download/prepare per-category material textures")
     ap.add_argument("--config", "-c", default="./config.json")
     ap.add_argument("--textures", "-t", default="./textures")
     ap.add_argument("--no-download", action="store_true", help="procedural only (offline)")
     ap.add_argument("--distinct", action="store_true",
-                    help="클래스 구분용 고채도 텍스처를 textures/distinct 에 생성")
-    ap.add_argument("--force", action="store_true", help="distinct 텍스처 강제 재생성")
+                    help="generate high-saturation class-distinct textures in textures/distinct")
+    ap.add_argument("--force", action="store_true", help="force-regenerate distinct textures")
     args = ap.parse_args()
     with open(args.config, encoding="utf-8") as f:
         cfg = json.load(f)
@@ -352,3 +352,7 @@ if __name__ == "__main__":
         ensure_textures(cfg, args.textures, allow_download=not args.no_download,
                         categories=categories)
     print("Done.")
+
+
+if __name__ == "__main__":
+    main()

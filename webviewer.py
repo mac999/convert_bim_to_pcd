@@ -225,10 +225,14 @@ def run_viewer(output_dir, config_path=None, port=5013, host="127.0.0.1"):
     app.run(host=host, port=port, debug=False)
 
 
-if __name__ == "__main__":
+def main():
     ap = argparse.ArgumentParser(description="Point cloud output web viewer")
-    ap.add_argument("--output", "-o", default="./output", help="점군 output 폴더")
-    ap.add_argument("--config", "-c", default="./config.json", help="클래스 설정 파일")
+    ap.add_argument("--output", "-o", default="./output", help="point cloud output folder")
+    ap.add_argument("--config", "-c", default="./config.json", help="category config file")
     ap.add_argument("--port", "-p", type=int, default=5013)
     a = ap.parse_args()
     run_viewer(a.output, a.config, a.port)
+
+
+if __name__ == "__main__":
+    main()
