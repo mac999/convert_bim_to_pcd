@@ -52,6 +52,7 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
 | `fbx_exporter.py` | Textured FBX scene builder based on aspose.threed |
 | `webviewer.py` | Point cloud web viewer for the output folder (Flask + Three.js, dark mode) |
 | `templates/viewer.html` | Web viewer frontend (tree navigation / 3D canvas / render settings) |
+| `pyproject.toml` / `requirements.txt` | Packaging metadata for `pip install -e .` (console scripts `ifc2pcd`, `ifc2pcd-viewer`, `ifc2pcd-textures`) and plain dependency list |
 | `config.json` | Category ↔ IFC class mapping, representative colors, material queries, UV scale, noise level |
 | `textures/` | Downloaded/generated texture cache + `manifest.json` (source & license) |
 | `input/` `output/` | IFC input / converted output |
@@ -120,14 +121,35 @@ The TUM Chair of Computational Modeling and Simulation published multi-scale **s
 
 ## Installation
 
-Tested on Windows + conda environment (`venv_lmm`, Python 3.11). Required packages:
+Tested on Windows + conda environment (`venv_lmm`, Python 3.11). Python ≥ 3.10 required.
+
+### pip install (recommended)
+
+The project ships a `pyproject.toml`, so a single editable install pulls every dependency and registers console commands:
 
 ```powershell
-# ifcopenshell is recommended to install via conda-forge
+git clone <this repo> && cd convert_bim_to_pcd
+pip install -e .
+```
+
+> Use the **editable** install (`-e`): the web viewer resolves `templates/` and the default `config.json` relative to the source folder. A plain dependency install is also available via `pip install -r requirements.txt`.
+
+Installed console commands (equivalent to the `python …` invocations below):
+
+| Command | Equivalent |
+|---------|-----------|
+| `ifc2pcd` | `python convert_ifc_to_las.py` — full conversion pipeline |
+| `ifc2pcd-viewer` | `python webviewer.py` — web viewer only |
+| `ifc2pcd-textures` | `python texture_manager.py` — pre-fetch textures only |
+
+### Manual install
+
+```powershell
+# ifcopenshell can also be installed via conda-forge instead of pip
 conda install -c conda-forge ifcopenshell
 
 # Remaining packages via pip
-pip install laspy[lazrs] numpy pillow tqdm aspose-3d matplotlib flask
+pip install laspy[lazrs] numpy pillow tqdm aspose-3d flask
 ```
 
 | Package | Purpose |
@@ -135,6 +157,7 @@ pip install laspy[lazrs] numpy pillow tqdm aspose-3d matplotlib flask
 | `ifcopenshell` (≥0.8) | IFC parsing and geometry triangulation |
 | `laspy[lazrs]` | LAS/**LAZ** point cloud writing (LAZ compression requires the `lazrs` backend) |
 | `aspose-3d` | Save FBX with textures and UV |
+| `flask` | Web viewer server |
 | `numpy`, `pillow`, `tqdm` | Numerical computation / texture images / progress bar |
 
 > This repository uses `C:\ProgramData\miniconda3\envs\venv_lmm\python.exe`.
@@ -503,6 +526,7 @@ This produces seamless tiling on BIM models with many axis-aligned faces such as
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **0.4.7** | 2026-07-17 | **pip-installable packaging**: added `pyproject.toml` (setuptools, flat py-modules layout) and `requirements.txt`; `pip install -e .` installs all dependencies and registers console commands `ifc2pcd` (converter), `ifc2pcd-viewer`, `ifc2pcd-textures`. `texture_manager.py` / `webviewer.py` `__main__` blocks wrapped into `main()` entry points (behavior unchanged). Editable install is required for the viewer's `templates/` resolution — documented in Installation. |
 | **0.4.6** | 2026-07-17 | **Real shield-tunnel samples** from TUM CMS research ([tumcms/IfcTunnelExampleFiles](https://github.com/tumcms/IfcTunnelExampleFiles), IFC4 — parseable, unlike IFC4X4 drafts): `tunnel_shield_lod4_tum.ifc` (lining, annular gap, roadway floor, service duct, clearance as separate objects → 3 segmentation classes) and `tunnel_shield_lod3_tum.ifc` (detailed B-rep tube, ~543 k pts). New `lining` category (`IfcProxy` "lining"/"annular"/"interior"/"segment" → Concrete046); tunnel floor routes to road, service duct to pipe via `IfcProxy` Name keywords. igutech geology model kept for the rock class. |
 | **0.4.5** | 2026-07-17 | **Fine-grained road segmentation, config-only** (no code change — pure `name_keywords`): `shoulder` (`IfcRoadPart` "shoulder"/"verge"), `asphalt_surface` vs `asphalt_binder` (`IfcCourse` "surface course" / "binder course"/"bitumen"), `marking` (`IfcSurfaceFeature` "line marking" etc., procedural white). The PCERT road scene now yields 6 classes (shoulder / asphalt surface / asphalt binder / marking / earthworks base course / soil subgrade) instead of 3; rail "ballastbed" keeps routing to ballast via category-order precedence. |
 | **0.4.4** | 2026-07-17 | **User-defined classes for coarse civil IFC exports.** A category with `"classes": []` and only `name_keywords` is now a first-class user-defined class: `train/labels.json` and the viewer `/api/config` report `ifc_classes: ["<category>"]` + `user_defined: true` (plus the keyword rules), so segmentation labels always have an identifier even when no real IFC class backs them. Viewer legend marks such classes with a `kw` badge and a mapping-rule tooltip. New bridge-member categories from Name patterns: `abutment` (`IfcWall` "Abutment"/"wingwall"), `piercap` (`IfcBeam` "PierCap"/"crossbeam", `IfcColumn` "pier"); `IfcEarthworksFill` "subgrade" now routes to soil (base courses stay earthworks). Verified on the Cambridge SEEBridge (abutment/piercap split from wall/beam) and PCERT road scene (subgrade/base-course split). |
