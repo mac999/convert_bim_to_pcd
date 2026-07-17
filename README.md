@@ -5,10 +5,10 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
 <p align="center">
   <img src="./doc/img1.png" height="200"></img></br>
   <img src="./doc/img2.png" height="250"></img>
-  <img src="./doc/img3.png" height="270"></img></br>
-  <img src="./doc/img4.png" height="100"></img>
-  <img src="./doc/img6.png" height="100"></img></br>
-  <img src="./doc/img5.png" height="220"></img>
+  <img src="./doc/img3.png" height="250"></img></br>
+  <img src="./doc/img4.png" height="120"></img>
+  <img src="./doc/img6.png" height="120"></img></br>
+  <img src="./doc/img5.png" height="240"></img>
 </p>
 
 *Point cloud conversion result of ac20_haus.ifc (front/top views) — plaster walls, glass windows, wooden doors, and metal beams are distinguished by texture color.*
