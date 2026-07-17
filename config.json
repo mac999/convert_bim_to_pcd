@@ -156,5 +156,194 @@
         "texture_query": "wood planks",
         "uv_scale": 1.0,
         "noise": 0.15
+    },
+    "road": {
+        "classes": ["IfcCourse", "IfcSurfaceFeature", "IfcRoadPart", "IfcPavement", "IfcKerb"],
+        "name_keywords": {"IfcProxy": ["floorspace", "roadway"]},
+        "color": [70, 70, 72],
+        "distinct_color": [90, 90, 95],
+        "texture_query": "asphalt",
+        "uv_scale": 3.0,
+        "noise": 0.15,
+        "normal_strength": 0.9
+    },
+    "ballast": {
+        "classes": [],
+        "name_keywords": {"IfcCourse": ["ballast"]},
+        "color": [135, 128, 118],
+        "distinct_color": [160, 120, 60],
+        "texture_query": "gravel",
+        "uv_scale": 1.5,
+        "noise": 0.35,
+        "normal_strength": 1.3
+    },
+    "track": {
+        "classes": ["IfcTrackElement"],
+        "color": [170, 165, 158],
+        "distinct_color": [210, 170, 30],
+        "texture_query": "concrete",
+        "uv_scale": 1.5,
+        "noise": 0.2
+    },
+    "rail": {
+        "classes": ["IfcRail"],
+        "color": [105, 95, 88],
+        "distinct_color": [230, 60, 40],
+        "texture_query": "rusty metal",
+        "uv_scale": 1.0,
+        "noise": 0.1
+    },
+    "pipe": {
+        "classes": ["IfcPipeSegment", "IfcPipeFitting"],
+        "name_keywords": {"IfcElementAssembly": ["manhole", "sewer", "drain"], "IfcProxy": ["servicespace", "service duct"]},
+        "color": [152, 148, 144],
+        "distinct_color": [65, 220, 200],
+        "texture_query": "concrete rough",
+        "uv_scale": 1.0,
+        "noise": 0.2
+    },
+    "earthworks": {
+        "classes": ["IfcEarthworksFill", "IfcReinforcedSoil"],
+        "color": [145, 132, 112],
+        "distinct_color": [185, 145, 60],
+        "texture_query": "gravel ground",
+        "uv_scale": 2.5,
+        "noise": 0.4,
+        "normal_strength": 1.2
+    },
+    "terrain": {
+        "classes": ["IfcGeographicElement"],
+        "color": [110, 150, 80],
+        "distinct_color": [80, 230, 60],
+        "texture_query": "grass",
+        "uv_scale": 2.0,
+        "noise": 0.35,
+        "normal_strength": 1.2
+    },
+    "vegetation": {
+        "classes": [],
+        "name_keywords": {"IfcGeographicElement": ["tree", "apple", "bush", "shrub", "plant", "hedge", "vegetation"]},
+        "color": [72, 110, 55],
+        "distinct_color": [20, 160, 30],
+        "texture_query": "moss",
+        "texture_asset": "Moss002",
+        "uv_scale": 1.0,
+        "noise": 0.5,
+        "normal_strength": 1.3
+    },
+    "soil": {
+        "classes": [],
+        "name_keywords": {
+            "IfcGeographicElement": ["soil", "underground", "subgrade", "earth", "dirt", "bed"],
+            "IfcBuildingElementProxy": ["underground"],
+            "IfcEarthworksFill": ["subgrade"]
+        },
+        "color": [125, 98, 70],
+        "distinct_color": [140, 90, 20],
+        "texture_query": "ground dirt",
+        "uv_scale": 2.5,
+        "noise": 0.35
+    },
+    "water": {
+        "classes": [],
+        "name_keywords": {"IfcGeographicElement": ["river", "stream", "water", "pond", "lake"]},
+        "color": [70, 130, 180],
+        "distinct_color": [0, 120, 255],
+        "texture_query": "water",
+        "procedural_only": true,
+        "uv_scale": 3.0,
+        "transparency": 0.45,
+        "noise": 0.6,
+        "normal_strength": 0.3,
+        "ao_strength": 0.3
+    },
+    "sign": {
+        "classes": ["IfcSign", "IfcSignal"],
+        "color": [200, 204, 210],
+        "distinct_color": [255, 230, 0],
+        "texture_query": "brushed metal",
+        "uv_scale": 1.0,
+        "noise": 0.25
+    },
+    "rock": {
+        "classes": [],
+        "name_keywords": {"IfcBuildingElementProxy": ["granit", "kluft", "harnisch", "schichtfl", "wasserzutritt", "rock", "fels", "gestein"]},
+        "color": [138, 132, 126],
+        "distinct_color": [120, 70, 160],
+        "texture_query": "rock",
+        "texture_asset": "Rock035",
+        "uv_scale": 2.0,
+        "noise": 0.3,
+        "normal_strength": 1.4
+    },
+    "abutment": {
+        "classes": [],
+        "name_keywords": {"IfcWall": ["abutment", "wingwall", "wing wall"]},
+        "color": [165, 162, 155],
+        "distinct_color": [0, 130, 255],
+        "texture_query": "concrete rough",
+        "uv_scale": 2.5,
+        "noise": 0.25,
+        "ao_strength": 1.2
+    },
+    "piercap": {
+        "classes": [],
+        "name_keywords": {"IfcBeam": ["piercap", "pier cap", "crossbeam", "cross beam"], "IfcColumn": ["pier"]},
+        "color": [175, 172, 166],
+        "distinct_color": [255, 100, 200],
+        "texture_query": "concrete",
+        "uv_scale": 2.0,
+        "noise": 0.2
+    },
+    "shoulder": {
+        "classes": [],
+        "name_keywords": {"IfcRoadPart": ["shoulder", "verge"]},
+        "color": [150, 140, 125],
+        "distinct_color": [200, 160, 90],
+        "texture_query": "gravel path",
+        "uv_scale": 2.0,
+        "noise": 0.3,
+        "normal_strength": 1.2
+    },
+    "asphalt_surface": {
+        "classes": [],
+        "name_keywords": {"IfcCourse": ["surface course", "wearing course"]},
+        "color": [58, 58, 60],
+        "distinct_color": [40, 40, 45],
+        "texture_query": "asphalt",
+        "uv_scale": 3.0,
+        "noise": 0.12,
+        "normal_strength": 0.8
+    },
+    "asphalt_binder": {
+        "classes": [],
+        "name_keywords": {"IfcCourse": ["binder course", "binder", "bitumen", "dbm"]},
+        "color": [82, 78, 74],
+        "distinct_color": [130, 110, 90],
+        "texture_query": "asphalt rough",
+        "uv_scale": 3.0,
+        "noise": 0.2,
+        "normal_strength": 1.1
+    },
+    "lining": {
+        "classes": [],
+        "name_keywords": {"IfcProxy": ["lining", "interior", "ring", "segment", "annular", "tübbing", "tubbing"]},
+        "color": [158, 155, 150],
+        "distinct_color": [150, 220, 255],
+        "texture_query": "concrete wall",
+        "uv_scale": 2.0,
+        "noise": 0.25,
+        "ao_strength": 1.2
+    },
+    "marking": {
+        "classes": [],
+        "name_keywords": {"IfcSurfaceFeature": ["marking", "line", "lane", "crosswalk", "zebra"]},
+        "color": [232, 232, 228],
+        "distinct_color": [255, 255, 0],
+        "texture_query": "road marking paint",
+        "procedural_only": true,
+        "uv_scale": 1.0,
+        "noise": 0.15,
+        "normal_strength": 0.3
     }
 }

@@ -390,8 +390,17 @@ function renderLegend(){
     const c = classColor(idx).map(v=>Math.round(v*255));
     const div = document.createElement('div');
     div.className='legend-item'+(state.hidden.has(idx)?' off':'');
+    if (cat){
+      // Tooltip: mapping source — IFC classes and/or Name-keyword rules.
+      // Keyword-only categories are user-defined classes named by config.
+      const kw = cat.name_keywords||{};
+      const kwTxt = Object.entries(kw).map(([c,ws])=>`${c} Name~[${ws.join('|')}]`).join(', ');
+      const clsTxt = cat.user_defined ? `사용자 정의 클래스 "${cat.name}"` : (cat.ifc_classes||[]).join(', ');
+      div.title = clsTxt + (kwTxt ? `\n${kwTxt}` : '');
+    }
     div.innerHTML = `<span class="dot" style="background:rgb(${c})"></span>
       <span>${cat?cat.name:'class '+idx}</span>
+      ${cat&&cat.user_defined?`<span class="nz" title="Name 키워드로 정의된 사용자 클래스">kw</span>`:''}
       ${cat&&cat.noise?`<span class="nz" title="노이즈 수준">nz ${cat.noise}</span>`:''}
       <span class="cnt">${fmtN(cnt)}</span>`;
     div.onclick = ()=>{

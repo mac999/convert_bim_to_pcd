@@ -292,9 +292,11 @@ def ensure_textures(config, textures_dir, allow_download=True, resolution="1K-JP
 
         # config 에 texture_asset(정확한 ambientCG 에셋 ID)가 있으면 검색 대신 그 에셋을 고정 사용
         pinned = data.get("texture_asset") if isinstance(data, dict) else None
+        # procedural_only: skip download and always generate (e.g. water — no CC0 photo material fits)
+        proc_only = bool(data.get("procedural_only")) if isinstance(data, dict) else False
 
         source = None
-        if allow_download:
+        if allow_download and not proc_only:
             try:
                 found = None
                 if pinned:

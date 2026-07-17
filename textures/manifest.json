@@ -75,5 +75,134 @@
     "license": "CC0",
     "url": "https://ambientcg.com/get?file=WoodFloor064_1K-JPG.zip",
     "query": "wood planks"
+  },
+  "road": {
+    "provider": "ambientCG",
+    "asset": "Road012A",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Road012A_1K-JPG.zip",
+    "query": "asphalt"
+  },
+  "ballast": {
+    "provider": "ambientCG",
+    "asset": "Gravel043",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Gravel043_1K-JPG.zip",
+    "query": "gravel"
+  },
+  "track": {
+    "provider": "ambientCG",
+    "asset": "Concrete034",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete034_1K-JPG.zip",
+    "query": "concrete"
+  },
+  "rail": {
+    "provider": "ambientCG",
+    "asset": "Metal063",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Metal063_1K-JPG.zip",
+    "query": "rusty metal"
+  },
+  "pipe": {
+    "provider": "ambientCG",
+    "asset": "Concrete047A",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete047A_1K-JPG.zip",
+    "query": "concrete rough"
+  },
+  "earthworks": {
+    "provider": "ambientCG",
+    "asset": "Gravel043",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Gravel043_1K-JPG.zip",
+    "query": "gravel ground"
+  },
+  "terrain": {
+    "provider": "ambientCG",
+    "asset": "Grass005",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Grass005_1K-JPG.zip",
+    "query": "grass"
+  },
+  "vegetation": {
+    "provider": "ambientCG",
+    "asset": "Moss002",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Moss002_1K-JPG.zip",
+    "query": "Moss002"
+  },
+  "soil": {
+    "provider": "ambientCG",
+    "asset": "Ground103",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Ground103_1K-JPG.zip",
+    "query": "ground dirt"
+  },
+  "water": {
+    "provider": "procedural",
+    "license": "generated",
+    "query": "water"
+  },
+  "sign": {
+    "provider": "ambientCG",
+    "asset": "Metal009",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Metal009_1K-JPG.zip",
+    "query": "brushed metal"
+  },
+  "rock": {
+    "provider": "ambientCG",
+    "asset": "Rock035",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Rock035_1K-JPG.zip",
+    "query": "Rock035"
+  },
+  "abutment": {
+    "provider": "ambientCG",
+    "asset": "Concrete047A",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete047A_1K-JPG.zip",
+    "query": "concrete rough"
+  },
+  "piercap": {
+    "provider": "ambientCG",
+    "asset": "Concrete034",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete034_1K-JPG.zip",
+    "query": "concrete"
+  },
+  "shoulder": {
+    "provider": "ambientCG",
+    "asset": "Ground081",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Ground081_1K-JPG.zip",
+    "query": "gravel path"
+  },
+  "asphalt_surface": {
+    "provider": "ambientCG",
+    "asset": "Road012A",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Road012A_1K-JPG.zip",
+    "query": "asphalt"
+  },
+  "asphalt_binder": {
+    "provider": "ambientCG",
+    "asset": "Road012A",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Road012A_1K-JPG.zip",
+    "query": "asphalt rough"
+  },
+  "marking": {
+    "provider": "procedural",
+    "license": "generated",
+    "query": "road marking paint"
+  },
+  "lining": {
+    "provider": "ambientCG",
+    "asset": "Concrete046",
+    "license": "CC0",
+    "url": "https://ambientcg.com/get?file=Concrete046_1K-JPG.zip",
+    "query": "concrete wall"
   }
 }

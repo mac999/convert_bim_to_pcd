@@ -152,10 +152,16 @@ def create_app(output_dir, config_path=None):
                 d = cfg[name] if isinstance(cfg[name], dict) else {}
                 # distinct 모드면 범례도 구분색을 우선 사용
                 color = d.get("distinct_color") or d.get("color", [255, 255, 255])
+                classes = d.get("classes", [])
                 cats.append({"index": i, "name": name,
                              "color": color,
                              "noise": d.get("noise", 0.0),
-                             "ifc_classes": d.get("classes", [])})
+                             # Name-keyword-only categories carry no IFC class:
+                             # expose the user-defined category name instead,
+                             # matching train/labels.json.
+                             "ifc_classes": classes or [name],
+                             "user_defined": not classes,
+                             "name_keywords": d.get("name_keywords", {})})
         return jsonify({"categories": cats, "lighting": lighting})
 
     @app.route("/api/labels")

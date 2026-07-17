@@ -1,4 +1,4 @@
-# convert_bim_to_pcd — IFC (BIM) → Textured FBX + RGB Point Cloud (LAS/LAZ) Converter
+# Convert BIM to PCD — IFC (BIM) → Textured FBX + RGB Point Cloud (LAS/LAZ) Converter
 
 A pipeline that parses and analyzes IFC models to perform the following steps in one pass: **1. automatically acquire material textures per IFC class → 2. generate a textured FBX with UV-mapped surfaces → 3. save real-coordinate RGB point clouds (LAS/LAZ) with texture colors → 4. produce per-class train datasets (txt/laz + labels.json) for deep-learning segmentation**. Results can be viewed instantly in the built-in **Flask web viewer (dark mode, Three.js)**.
 
@@ -52,6 +52,66 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
 | `config.json` | Category ↔ IFC class mapping, representative colors, material queries, UV scale, noise level |
 | `textures/` | Downloaded/generated texture cache + `manifest.json` (source & license) |
 | `input/` `output/` | IFC input / converted output |
+
+---
+
+## Sample IFC Models (input/)
+
+The `input/` folder ships with free, redistributable sample models: two buildings plus **12 infrastructure models** (bridges, shield tunnels, road, railway, terrain, and drainage) collected from public IFC repositories. **Every bundled file is verified to parse and triangulate with ifcopenshell 0.8.4** (supported schemas: IFC2X3, IFC4, IFC4X1, IFC4X2, IFC4X3 + ADD1/ADD2/TC1). Models published only in unsupported draft schemas (IFC4X4 / IfcTunnel extension, IFC4X3_RC2/RC3) were excluded.
+
+### Buildings
+
+| File | Description | Source |
+|------|-------------|--------|
+| `Duplex_A_20110907.ifc` | Duplex apartment (IFC2X3), classic buildingSMART sample | [buildingSMART Sample-Test-Files](https://github.com/buildingSMART/Sample-Test-Files) |
+| `ac20_haus.ifc` | ArchiCAD 20 single-family house (IFC4) | ArchiCAD sample project |
+
+### Bridges — ifcinfra.de (TUM / planen-bauen 4.0 Verkehrswege project)
+
+German research project publishing real-world **IFC-Bridge (IFC4X2)** models, free to download at [ifcinfra.de IFC-Bridge examples](https://ifcinfra.de/ifc-bridge/bridge-abschluss/).
+
+| File | Schema | Description | Download |
+|------|--------|-------------|----------|
+| `bridge_bergedorfer_strasse.ifc` | IFC4X2 | Bergedorfer Straße bridge (BAB1, Hamburg) by WTM Engineers; components classified per ASB-ING 2013 | [ifcbridge-model01.zip](https://ifcinfra.de/wp-content/uploads/2019/07/ifcbridge-model01.zip) |
+| `bridge_a99.ifc` | IFC4X2 | A99 motorway bridge (Autobahndirektion Südbayern); B-rep geometry | [ifcbridge-model02.zip](https://ifcinfra.de/wp-content/uploads/2019/07/ifcbridge-model02.zip) |
+| `bridge_cambridge_seebridge.ifc` | IFC4X2 | SEEBridge project model (University of Cambridge); mixed B-rep + extrusion geometry | [ifcbridge-model03.zip](https://ifcinfra.de/wp-content/uploads/2019/07/ifcbridge-model03.zip) |
+
+### Road / Railway / Bridge / Terrain / Drainage — buildingSMART PCERT sample scene (IFC4X3_ADD2)
+
+One connected infrastructure scene split by discipline, from the official buildingSMART import-certification samples: [buildingSMART/Sample-Test-Files](https://github.com/buildingSMART/Sample-Test-Files) → `IFC 4.3.2.0 (IFC4X3_ADD2)/PCERT-Sample-Scene/`.
+
+| File | Structure | Description | Download |
+|------|-----------|-------------|----------|
+| `road_pcert_scene.ifc` | Road | Road corridor: pavement courses (`IfcCourse`), earthworks fills, road parts, surface markings | [Infra-Road.ifc](https://github.com/buildingSMART/Sample-Test-Files/raw/main/IFC%204.3.2.0%20(IFC4X3_ADD2)/PCERT-Sample-Scene/Infra-Road.ifc) |
+| `railway_pcert_scene.ifc` | Railway | Rail track: 66 `IfcTrackElement` (sleepers etc.), `IfcRail` rails, ballast courses | [Infra-Rail.ifc](https://github.com/buildingSMART/Sample-Test-Files/raw/main/IFC%204.3.2.0%20(IFC4X3_ADD2)/PCERT-Sample-Scene/Infra-Rail.ifc) |
+| `bridge_pcert_scene.ifc` | Bridge | Rail bridge: beams, columns, footings, spandrel walls, earthworks fills, signs | [Infra-Bridge.ifc](https://github.com/buildingSMART/Sample-Test-Files/raw/main/IFC%204.3.2.0%20(IFC4X3_ADD2)/PCERT-Sample-Scene/Infra-Bridge.ifc) |
+| `terrain_landscaping_pcert.ifc` | Terrain | Landscaping: 76 `IfcGeographicElement` (terrain/vegetation), signs, members | [Infra-Landscaping.ifc](https://github.com/buildingSMART/Sample-Test-Files/raw/main/IFC%204.3.2.0%20(IFC4X3_ADD2)/PCERT-Sample-Scene/Infra-Landscaping.ifc) |
+| `drainage_plumbing_pcert.ifc` | Drainage | Buried drainage: 24 `IfcPipeSegment`, manhole assemblies | [Infra-Plumbing.ifc](https://github.com/buildingSMART/Sample-Test-Files/raw/main/IFC%204.3.2.0%20(IFC4X3_ADD2)/PCERT-Sample-Scene/Infra-Plumbing.ifc) |
+
+### Railway signals — buildingSMART IFC4.3 official samples
+
+| File | Schema | Description | Download |
+|------|--------|-------------|----------|
+| `railway_signal_alignment.ifc` | IFC4X3_ADD2 | Railway signals (`IfcSignal`) linearly placed along an `IfcAlignment` with referents; from [buildingSMART/IFC4.3.x-sample-models](https://github.com/buildingSMART/IFC4.3.x-sample-models) | [linear-placement-of-signal.ifc](https://github.com/buildingSMART/IFC4.3.x-sample-models/raw/main/models/alignment-geometries-and-linear-positioning/linear-placement-of-signal/linear-placement-of-signal.ifc) |
+
+### Tunnels — TUM shield-tunnel research models + buildingSMART IFC-Tunnel Deployment
+
+The TUM Chair of Computational Modeling and Simulation published multi-scale **shield tunnel** product models (from their multi-scale geometric-semantic tunnel modeling research) at [tumcms/IfcTunnelExampleFiles](https://github.com/tumcms/IfcTunnelExampleFiles), exported in released schemas (IFC2X3/IFC4) using `IfcProxy` components — unlike most IfcTunnel datasets which require the unreleased IFC4X4 draft.
+
+| File | Schema | Description | Download |
+|------|--------|-------------|----------|
+| `tunnel_shield_lod4_tum.ifc` | IFC4 | Shield tunnel, LoD4: lining space, annular gap (grout), interior space, roadway floor slab, service duct, clearance profile as separate `IfcProxy` objects along a curved alignment → converts to lining / road / pipe classes | [ProxyExtrudedAreaSolidBoolArbitraryProf_LoD4 - IFC4.ifc](https://github.com/tumcms/IfcTunnelExampleFiles/raw/master/01_IfcProxy/03_IfcExtrudedAreaSolid%2BIfcArbitraryClosedProfileDefinition%2BIfcCircle%2BIfcBooleanResult/ProxyExtrudedAreaSolidBoolArbitraryProf_LoD4%20-%20IFC4.ifc) |
+| `tunnel_shield_lod3_tum.ifc` | IFC4 | Shield tunnel, LoD3: detailed faceted-B-rep tunnel tube (3.8 MB, ~543 k sampled points) | [IfcProxy_IfcFacetedBrep_LoD3_IFC4.ifc](https://github.com/tumcms/IfcTunnelExampleFiles/raw/master/01_IfcProxy/01_IfcFacetedBrep/IfcProxy_IfcFacetedBrep_LoD3_IFC4.ifc) |
+| `tunnel_igutech_sprint_1.1.ifc` | IFC4 | Tunnel geology model (granite sections, joint surfaces, water ingress as `IfcBuildingElementProxy`) from [bSI-InfraRoom/IFC-Tunnel-Deployment](https://github.com/bSI-InfraRoom/IFC-Tunnel-Deployment) — complements the structural models above; converts to the rock class | [igutech_ifctunnel_sprint_1.1.ifc](https://github.com/bSI-InfraRoom/IFC-Tunnel-Deployment/raw/main/files/igutech/igutech_ifctunnel_sprint_1.1.ifc) |
+
+**Repositories checked but excluded** (files exist but their schemas are unsupported by ifcopenshell 0.8.4):
+
+| Repository | Why excluded |
+|------------|--------------|
+| [bSI-InfraRoom/IFC-Tunnel-Deployment](https://github.com/bSI-InfraRoom/IFC-Tunnel-Deployment) | Most tunnel datasets are IFC4X4 / IFC4X4_B072BCCA drafts (IfcTunnel extension) → `SchemaError` |
+| [bSI-RailwayRoom/IFC-Rail-Sample-Files](https://github.com/bSI-RailwayRoom/IFC-Rail-Sample-Files) | Rich rail models (signaling, track, cables) but exported as IFC4X3_RC3 → `SchemaError` |
+| [bSI-InfraRoom/IFC-infra-unit-test](https://github.com/bSI-InfraRoom/IFC-infra-unit-test) | Earthworks / alignment unit tests are IFC4X3_RC3 → `SchemaError` |
+| ifcinfra.de models 04–05 (BeamBridge, suspension footbridge) | IFC4X2 draft alignment-based sweeps (`IfcSectionedSolidHorizontal`, `IfcTendon`) — parse but produce no geometry |
 
 ---
 
@@ -161,6 +221,10 @@ python texture_manager.py --no-download                       # procedural gener
 
 Per category, specify a list of IFC classes, a representative color (RGB, used as fallback when no texture is available), a material search query, and UV scale.
 
+The bundled config covers building categories (wall/roof/window/…) plus **AEC infrastructure categories**: `road` (asphalt courses, surface markings, road parts), `ballast` & `track` & `rail` (railway), `pipe` (drainage pipes, manholes), `earthworks` (fills, base courses), `terrain` / `vegetation` / `soil` / `water` (geographic elements split by Name keywords — e.g. an `IfcGeographicElement` named "apple tree" goes to vegetation, "park - site - grass" stays terrain, "river stream" goes to water), `sign` (signs/signals), `rock` (tunnel geology proxies), Name-keyword bridge members `abutment` (`IfcWall` "Abutment"/"wingwall") / `piercap` (`IfcBeam` "PierCap", `IfcColumn` "pier"), and Name-keyword road parts `shoulder` (`IfcRoadPart` "shoulder"/"verge"), `asphalt_surface` / `asphalt_binder` (`IfcCourse` "surface course" / "binder course"), `marking` (`IfcSurfaceFeature` "line marking", procedural white paint). `road` remains the fallback for road elements whose Name matches none of these.
+
+Civil IFC exports often reuse a handful of coarse classes (`IfcCourse`, `IfcEarthworksFill`, `IfcWall`, `IfcBeam`…) for very different materials, distinguishing them only by `Name` (e.g. "road asphalt binder course" vs "ballastbed", "Abutment 1" vs an interior wall). `name_keywords` is designed for exactly this: any number of Name patterns can be routed to a texture category, and each category — even one with no IFC class of its own — becomes a separate segmentation class in the point cloud, the train dataset, and the viewer legend (marked with a `kw` badge and a tooltip showing its mapping rules).
+
 The top-level `settings` block (reserved key, not a category) defines the texture mode, lighting, and the cheap photorealism effects (`shading_fx`). All other keys are category definitions.
 
 ```json
@@ -225,6 +289,8 @@ The top-level `settings` block (reserved key, not a category) defines the textur
 |-----|-------------|
 | `classes` | IFC entity classes to group into this category |
 | `predefined` | (optional) Re-classify a shared IFC class by `PredefinedType` into this category. E.g., if a roof is modeled as `IfcSlab(PredefinedType=ROOF)` instead of `IfcRoof`, use `"predefined": {"IfcSlab": ["ROOF"]}` to route only those slabs to the roof category (remaining `IfcSlab` entities stay in slab). `predefined` takes precedence over `classes` per entity |
+| `name_keywords` | (optional) Re-classify a shared IFC class by **`Name` substring** (case-insensitive) into this category. E.g. `"name_keywords": {"IfcGeographicElement": ["tree", "apple"]}` routes elements named "apple tree" to vegetation while other geographic elements stay in terrain. Also used for rail ballast (`IfcCourse` "ballastbed"), tunnel geology (`IfcBuildingElementProxy` "Granit"/"Kluft"/…), and bridge members (`IfcWall` "Abutment" → abutment, `IfcBeam` "PierCap" → piercap, `IfcEarthworksFill` "subgrade" → soil). Precedence per entity: `name_keywords` > `predefined` > `classes`; when several categories match, the one defined first in config wins. A category with `"classes": []` and only keywords is a **user-defined class**: since no real IFC class backs it, `train/labels.json` and the viewer identify it by the category name (`ifc_classes: ["<category>"]`, `user_defined: true`), and it still gets its own classification index and per-class train dataset like any other category |
+| `procedural_only` | (optional) Always generate this category's texture procedurally from `color`, skipping the ambientCG download (used for `water` — no CC0 photo material fits) |
 | `color` | Representative RGB (0–255). Fallback point cloud color when no texture is available |
 | `distinct_color` | (optional) High-saturation RGB used in `texture_mode="distinct"` to visually distinguish classes (e.g., window=bright blue, roof=terracotta) |
 | `texture_query` | ambientCG material search query (e.g., `concrete`, `plywood`, `metal steel`) |
@@ -348,12 +414,18 @@ Example `labels.json`:
   "num_classes": 8,
   "total_points": 12345678,
   "classes": [
-    {"index": 1, "name": "wall", "ifc_classes": ["IfcWall", "..."],
+    {"index": 1, "name": "wall", "ifc_classes": ["IfcWall", "..."], "user_defined": false,
      "color": [180,175,168], "noise": 0.2, "num_points": 4567890,
-     "files": {"txt": "wall/wall.txt", "laz": "wall/wall.laz"}}
+     "files": {"txt": "wall/wall.txt", "laz": "wall/wall.laz"}},
+    {"index": 24, "name": "abutment", "ifc_classes": ["abutment"], "user_defined": true,
+     "name_keywords": {"IfcWall": ["abutment", "wingwall"]},
+     "color": [165,162,155], "noise": 0.25, "num_points": 32028,
+     "files": {"txt": "abutment/abutment.txt", "laz": "abutment/abutment.laz"}}
   ]
 }
 ```
+
+`user_defined: true` marks a class defined purely by `name_keywords` (no real IFC class behind it); its `ifc_classes` then carries the user-defined category name so downstream training/label tooling always has a class identifier. The web viewer exposes the same fields via `/api/config` and shows a `kw` badge in the legend.
 
 ### Point Cloud Specification
 - **Coordinates**: IFC world coordinates used as-is (meters). LAS header `scale=0.001` (mm precision), `offset=floor(min)`.
@@ -428,6 +500,12 @@ This produces seamless tiling on BIM models with many axis-aligned faces such as
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **0.4.6** | 2026-07-17 | **Real shield-tunnel samples** from TUM CMS research ([tumcms/IfcTunnelExampleFiles](https://github.com/tumcms/IfcTunnelExampleFiles), IFC4 — parseable, unlike IFC4X4 drafts): `tunnel_shield_lod4_tum.ifc` (lining, annular gap, roadway floor, service duct, clearance as separate objects → 3 segmentation classes) and `tunnel_shield_lod3_tum.ifc` (detailed B-rep tube, ~543 k pts). New `lining` category (`IfcProxy` "lining"/"annular"/"interior"/"segment" → Concrete046); tunnel floor routes to road, service duct to pipe via `IfcProxy` Name keywords. igutech geology model kept for the rock class. |
+| **0.4.5** | 2026-07-17 | **Fine-grained road segmentation, config-only** (no code change — pure `name_keywords`): `shoulder` (`IfcRoadPart` "shoulder"/"verge"), `asphalt_surface` vs `asphalt_binder` (`IfcCourse` "surface course" / "binder course"/"bitumen"), `marking` (`IfcSurfaceFeature` "line marking" etc., procedural white). The PCERT road scene now yields 6 classes (shoulder / asphalt surface / asphalt binder / marking / earthworks base course / soil subgrade) instead of 3; rail "ballastbed" keeps routing to ballast via category-order precedence. |
+| **0.4.4** | 2026-07-17 | **User-defined classes for coarse civil IFC exports.** A category with `"classes": []` and only `name_keywords` is now a first-class user-defined class: `train/labels.json` and the viewer `/api/config` report `ifc_classes: ["<category>"]` + `user_defined: true` (plus the keyword rules), so segmentation labels always have an identifier even when no real IFC class backs them. Viewer legend marks such classes with a `kw` badge and a mapping-rule tooltip. New bridge-member categories from Name patterns: `abutment` (`IfcWall` "Abutment"/"wingwall"), `piercap` (`IfcBeam` "PierCap"/"crossbeam", `IfcColumn` "pier"); `IfcEarthworksFill` "subgrade" now routes to soil (base courses stay earthworks). Verified on the Cambridge SEEBridge (abutment/piercap split from wall/beam) and PCERT road scene (subgrade/base-course split). |
+| **0.4.3** | 2026-07-17 | **AEC infrastructure texture mapping**: 12 new config categories (road, ballast, track, rail, pipe, earthworks, terrain, vegetation, soil, water, sign, rock) covering the bundled bridge/road/railway/terrain/drainage/tunnel models. New `name_keywords` config key re-classifies shared IFC classes by `Name` substring (e.g. `IfcGeographicElement` "apple tree" → vegetation, "river stream" → water, "ballastbed" `IfcCourse` → ballast, German tunnel geology proxies → rock); precedence `name_keywords` > `predefined` > `classes`. New `procedural_only` key forces procedural texture generation (water). Verified end-to-end on all bundled infra samples — the tunnel model (geology `IfcBuildingElementProxy` only) now converts instead of producing an empty cloud. |
+| **0.4.2** | 2026-07-17 | Curated the bundled samples down to **10 verified infrastructure models**: every file now parses and triangulates with ifcopenshell 0.8.4. Removed 4 IFC4X4 tunnels (unsupported schema) and 2 IFC4X2 bridges with draft alignment-sweep geometry that yields no mesh. Added broader structure types from the buildingSMART PCERT IFC4X3_ADD2 certification scene (road corridor, railway track, rail bridge, terrain/landscaping, buried drainage) plus a railway-signal linear-placement sample. README sample section rewritten with per-file compatibility, sources, and an excluded-repositories table. |
+| **0.4.1** | 2026-07-17 | Bundled 10 free infrastructure sample models in `input/`: 5 IFC4X2 bridges from ifcinfra.de (Bergedorfer Straße, A99, Cambridge SEEBridge, BeamBridge, suspension footbridge) and 5 IfcTunnel test models from buildingSMART IFC-Tunnel-Deployment (project team Sprint 2.3/3-Exc, ACCA, Bever Control, igutech). Added a "Sample IFC Models" README section with source repositories, descriptions, and download links. |
 | **0.4.0** | 2026-07-17 | **Cheap photorealism effects** (`shading_fx.py`, `settings.shading_fx`): texture normal/bump map with cavity shadows, crease-based edge AO (concave darkening + convex highlight), hemisphere ambient, and auto-placed IfcSpace interior point lights. Per-category `normal_strength` / `ao_strength` overrides; `--no-fx` to disable. Added `run.bat` / `run.sh` launchers with `viewer` / `textures` subcommands. Code comments and CLI help unified to English. |
 | **0.3.0** | 2026-07-15 | Lambert diffuse light shading of the point cloud RGB (`settings.lighting`: directional / point, bbox-normalized position, ambient, intensity, double_sided) with point-light distance attenuation (auto `range` from the model bbox diagonal). `distinct` texture mode for high-saturation per-class colors. `predefined` key to re-classify shared IFC classes by `PredefinedType` (fixes roofs modeled as `IfcSlab(ROOF)`). `texture_asset` key to pin an exact ambientCG asset ID; default texture mode set to `realistic`. Output folder is wiped before regeneration (`--no-clean` to opt out). |
 | **0.2.0** | 2026-07-12 | Per-class training dataset (`train/<class>/<class>.txt` + `.laz`, `train/labels.json`). Per-class Gaussian noise (`noise` × spacing) to simulate scanner error. Flask + Three.js web viewer on port 5013 (tree navigation, render settings, class legend, deep links). |

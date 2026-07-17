@@ -48,6 +48,7 @@ def load_category_mapping(config_path):
 
     mapping = {}      # ifc_class -> category
     predef_map = {}   # (ifc_class, PREDEFINED_TYPE) -> category
+    keyword_map = {}  # ifc_class -> [(name_substring_lower, category), ...] in config order
     colors = {}       # category  -> [r,g,b]
     distinct = {}     # category  -> [r,g,b] (high-saturation, for distinct mode)
     uv_scales = {}    # category  -> meters per tile
@@ -59,6 +60,7 @@ def load_category_mapping(config_path):
             ifc_classes, color, uvs, tr, nz = data, [255, 255, 255], 2.0, 0.0, 0.0
             dc = None
             predef = {}
+            kw = {}
         else:
             ifc_classes = data.get("classes", [])
             color = data.get("color", [255, 255, 255])
@@ -69,6 +71,9 @@ def load_category_mapping(config_path):
             # Re-route a shared IFC class into this category by PredefinedType.
             # e.g. roof.predefined = {"IfcSlab": ["ROOF"]} sends roof slabs to roof.
             predef = data.get("predefined", {}) if isinstance(data.get("predefined"), dict) else {}
+            # Re-route by Name substring (case-insensitive), e.g. vegetation.
+            # name_keywords = {"IfcGeographicElement": ["tree", "grass"]}
+            kw = data.get("name_keywords", {}) if isinstance(data.get("name_keywords"), dict) else {}
         colors[category] = color
         if dc:
             distinct[category] = dc
@@ -80,12 +85,23 @@ def load_category_mapping(config_path):
         for ifc_class, types in predef.items():
             for t in types:
                 predef_map[(ifc_class, str(t).upper())] = category
-    return (config, categories, mapping, predef_map, colors, distinct,
+        for ifc_class, words in kw.items():
+            keyword_map.setdefault(ifc_class, []).extend(
+                (str(w).lower(), category) for w in words)
+    return (config, categories, mapping, predef_map, keyword_map, colors, distinct,
             uv_scales, transp, noise, settings)
 
 
-def resolve_entity_category(entity, ifc_class, mapping, predef_map):
-    """Resolve an entity's category, letting PredefinedType override the class mapping."""
+def resolve_entity_category(entity, ifc_class, mapping, predef_map, keyword_map=None):
+    """Resolve an entity's category: Name keywords > PredefinedType > class mapping."""
+    if keyword_map:
+        rules = keyword_map.get(ifc_class)
+        if rules:
+            name = str(getattr(entity, "Name", "") or "").lower()
+            if name:
+                for word, cat in rules:
+                    if word in name:
+                        return cat
     if predef_map:
         pt = getattr(entity, "PredefinedType", None)
         if pt is not None:
@@ -383,10 +399,17 @@ def save_train_dataset(model_out_dir, source_name, category_list, cat_index,
         save_point_cloud(pts, cols, cls, str(cat_dir / cat), formats=("laz",))
 
         cat_cfg = cfg.get(cat, {})
-        label_info["classes"].append({
+        ifc_classes = (cat_cfg.get("classes", []) if isinstance(cat_cfg, dict)
+                       else list(cat_cfg))
+        name_kw = (cat_cfg.get("name_keywords", {}) if isinstance(cat_cfg, dict)
+                   else {})
+        entry = {
             "index": cat_index[cat],
             "name": cat,
-            "ifc_classes": cat_cfg.get("classes", []) if isinstance(cat_cfg, dict) else cat_cfg,
+            # A category defined only by Name keywords has no IFC class of its
+            # own -> label it by the user-defined category name instead.
+            "ifc_classes": ifc_classes or [cat],
+            "user_defined": not ifc_classes,
             "color": colors.get(cat, [255, 255, 255]),
             "noise": noise.get(cat, 0.0),
             "num_points": int(pts.shape[0]),
@@ -394,7 +417,10 @@ def save_train_dataset(model_out_dir, source_name, category_list, cat_index,
                 "txt": f"{cat}/{cat}.txt",
                 "laz": f"{cat}/{cat}.laz",
             },
-        })
+        }
+        if name_kw:
+            entry["name_keywords"] = name_kw
+        label_info["classes"].append(entry)
         label_info["total_points"] += int(pts.shape[0])
 
     label_info["num_classes"] = len(label_info["classes"])
@@ -427,8 +453,9 @@ def build_ifc_settings(deflection_tol):
 def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scales,
                 transp, noise, textures, tex_arrays, settings, spacing, formats,
                 light_cfg=None, make_fbx=True, make_train=True, clean=True,
-                predef_map=None, fx=None, detail_maps=None):
+                predef_map=None, keyword_map=None, fx=None, detail_maps=None):
     predef_map = predef_map or {}
+    keyword_map = keyword_map or {}
     detail_maps = detail_maps or {}
     filename = Path(ifc_file).stem
     print(f"\nProcessing: {filename}.ifc")
@@ -470,9 +497,10 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
     counter = {c: 0 for c in category_list}
     extracted = 0
 
-    # Walk mapped classes plus any class referenced by a predefined rule
+    # Walk mapped classes plus any class referenced by a predefined/keyword rule
     supported = list(dict.fromkeys(list(mapping.keys())
-                                   + [ic for (ic, _t) in predef_map.keys()]))
+                                   + [ic for (ic, _t) in predef_map.keys()]
+                                   + list(keyword_map.keys())))
     pbar = tqdm(supported, desc="Extracting", leave=True)
     for ifc_class in pbar:
         try:
@@ -485,7 +513,8 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
 
         for entity in entities:
             try:
-                category = resolve_entity_category(entity, ifc_class, mapping, predef_map)
+                category = resolve_entity_category(entity, ifc_class, mapping,
+                                                   predef_map, keyword_map)
                 if category is None:
                     continue
                 tex = tex_arrays.get(category)
@@ -621,8 +650,8 @@ def main():
         raise SystemExit(f"config not found: {args.config}")
 
     if not args.viewer_only:
-        (cfg, categories, mapping, predef_map, colors, distinct, uv_scales,
-         transp, noise, settings_cfg) = load_category_mapping(args.config)
+        (cfg, categories, mapping, predef_map, keyword_map, colors, distinct,
+         uv_scales, transp, noise, settings_cfg) = load_category_mapping(args.config)
 
         tex_mode = args.texture_mode or settings_cfg.get("texture_mode", "realistic")
         light_cfg = None if args.no_shading else settings_cfg.get("lighting")
@@ -667,7 +696,7 @@ def main():
                             args.spacing, formats, light_cfg=light_cfg,
                             make_fbx=not args.no_fbx, make_train=not args.no_train,
                             clean=not args.no_clean, predef_map=predef_map,
-                            fx=fx, detail_maps=detail_maps)
+                            keyword_map=keyword_map, fx=fx, detail_maps=detail_maps)
             print("\nAll done.")
 
     if args.viewer or args.viewer_only:
