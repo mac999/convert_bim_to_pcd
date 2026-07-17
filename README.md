@@ -17,20 +17,20 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
 ```
   input/*.ifc
       │
-      │  ① Texture acquisition (texture_manager.py)
+      │  1. Texture acquisition (texture_manager.py)
       │     IFC product class → category → material search query
       │     ambientCG (CC0) download  or  procedural generation (offline fallback)
       ▼
   textures/<category>.jpg
       │
-      │  ② Geometry extraction + UV mapping (ifcopenshell / uv_mapping.py)
+      │  2. Geometry extraction + UV mapping (ifcopenshell / uv_mapping.py)
       │     World-coordinate (meter) mesh → UV generation via triplanar projection
       │
-      ├──▶ ③-A  Textured FBX  (fbx_exporter.py, aspose.threed)
+      ├──▶ 3-A  Textured FBX  (fbx_exporter.py, aspose.threed)
       │        Per-category PhongMaterial (diffuse texture) + per-object UV mesh
       │        → output/<model>/<model>.fbx (+ textures/ bundled)
       │
-      └──▶ ③-B  RGB Point Cloud  (laspy)
+      └──▶ 3-B  RGB Point Cloud  (laspy)
                Face Poisson sampling → bilinear texture color sampling per point UV
                → output/<model>/<model>.las / .laz  (real coordinates + RGB + classification)
 ```
