@@ -57,14 +57,14 @@ def load_texture_array(path):
     return np.asarray(Image.open(path).convert("RGB"), dtype=np.uint8)
 
 
-def sample_bilinear(tex, uv):
+def sample_bilinear_f(arr, uv):
     """
-    텍스처에서 UV(반복/wrap) 위치의 색을 이중선형 샘플링.
-      tex : (H,W,3) uint8
+    임의 채널 수의 float 맵에서 UV(반복/wrap) 위치를 이중선형 샘플링.
+      arr : (H,W,C)  — 텍스처 RGB 뿐 아니라 노멀/캐비티 같은 파생 맵에도 사용
       uv  : (N,2) float (임의 범위, wrap 됨)
-    반환 : (N,3) uint8
+    반환 : (N,C) float32
     """
-    h, w = tex.shape[:2]
+    h, w = arr.shape[:2]
     # UV → 텍셀 좌표 (v 는 상하 반전: 이미지 원점이 좌상단)
     fx = (uv[:, 0] % 1.0) * (w - 1)
     fy = (1.0 - (uv[:, 1] % 1.0)) * (h - 1)
@@ -76,12 +76,21 @@ def sample_bilinear(tex, uv):
     dx = (fx - x0)[:, None]
     dy = (fy - y0)[:, None]
 
-    c00 = tex[y0, x0].astype(np.float32)
-    c10 = tex[y0, x1].astype(np.float32)
-    c01 = tex[y1, x0].astype(np.float32)
-    c11 = tex[y1, x1].astype(np.float32)
+    c00 = arr[y0, x0].astype(np.float32)
+    c10 = arr[y0, x1].astype(np.float32)
+    c01 = arr[y1, x0].astype(np.float32)
+    c11 = arr[y1, x1].astype(np.float32)
 
     top = c00 * (1 - dx) + c10 * dx
     bot = c01 * (1 - dx) + c11 * dx
-    col = top * (1 - dy) + bot * dy
-    return np.clip(col, 0, 255).astype(np.uint8)
+    return top * (1 - dy) + bot * dy
+
+
+def sample_bilinear(tex, uv):
+    """
+    텍스처에서 UV(반복/wrap) 위치의 색을 이중선형 샘플링.
+      tex : (H,W,3) uint8
+      uv  : (N,2) float (임의 범위, wrap 됨)
+    반환 : (N,3) uint8
+    """
+    return np.clip(sample_bilinear_f(tex, uv), 0, 255).astype(np.uint8)

@@ -1,18 +1,15 @@
 """
 convert_ifc_to_las.py
 =====================
-IFC(BIM) 모델을 파싱/분석하여
+Converts an IFC (BIM) model into:
 
-  1) IFC product 클래스(카테고리)별로 어울리는 재질 텍스처를 확보하고
-     (ambientCG CC0 다운로드 또는 절차적 생성 — texture_manager.py)
-  2) 각 객체 서페이스에 삼중평면(triplanar) 투영으로 UV 를 부여해 텍스처를
-     자연스럽게 매핑한 **FBX** 를 생성하고 (fbx_exporter.py)
-  3) 각 면을 포아송 샘플링해 만든 점군에 텍스처 색상을 입혀
-     실 좌표(미터) 스케일 + RGB 를 가진 **LAS / LAZ** 로 저장한다.
+  1) per-category material textures (ambientCG CC0 download or procedural - texture_manager.py)
+  2) a textured FBX with triplanar-projected UVs (fbx_exporter.py)
+  3) a Poisson-sampled RGB point cloud in real-world meters, saved as LAS/LAZ
 
-LAS classification 필드에는 카테고리 인덱스를 기록해 시맨틱 라벨로 활용할 수 있다.
+The LAS classification field holds the category index, usable as a semantic label.
 
-사용 예:
+Example:
   python convert_ifc_to_las.py -i ./input -o ./output -c ./config.json --spacing 0.03
 """
 
@@ -32,11 +29,12 @@ from tqdm import tqdm
 
 import texture_manager
 import uv_mapping
+import shading_fx
 from fbx_exporter import FbxSceneBuilder
 
 
 # ---------------------------------------------------------------------------
-# 설정 로딩
+# Config loading
 # ---------------------------------------------------------------------------
 RESERVED_KEYS = {"settings"}
 
@@ -49,9 +47,9 @@ def load_category_mapping(config_path):
     categories = [k for k in config.keys() if k not in RESERVED_KEYS]
 
     mapping = {}      # ifc_class -> category
-    predef_map = {}   # (ifc_class, PREDEFINED_TYPE) -> category (세부 재분류)
+    predef_map = {}   # (ifc_class, PREDEFINED_TYPE) -> category
     colors = {}       # category  -> [r,g,b]
-    distinct = {}     # category  -> [r,g,b] (구분용 고채도 색)
+    distinct = {}     # category  -> [r,g,b] (high-saturation, for distinct mode)
     uv_scales = {}    # category  -> meters per tile
     transp = {}       # category  -> transparency 0..1
     noise = {}        # category  -> noise level 0..1 (sigma = noise * spacing)
@@ -68,8 +66,8 @@ def load_category_mapping(config_path):
             uvs = data.get("uv_scale", 2.0)
             tr = data.get("transparency", 0.0)
             nz = float(data.get("noise", 0.0))
-            # predefined: 공유 IFC 클래스를 PredefinedType 으로 세분해 이 카테고리로 재분류
-            # 예) roof.predefined = {"IfcSlab": ["ROOF"]}  → 지붕용 슬래브를 roof 로
+            # Re-route a shared IFC class into this category by PredefinedType.
+            # e.g. roof.predefined = {"IfcSlab": ["ROOF"]} sends roof slabs to roof.
             predef = data.get("predefined", {}) if isinstance(data.get("predefined"), dict) else {}
         colors[category] = color
         if dc:
@@ -87,7 +85,7 @@ def load_category_mapping(config_path):
 
 
 def resolve_entity_category(entity, ifc_class, mapping, predef_map):
-    """PredefinedType 세부 재분류를 우선 적용해 엔티티의 카테고리를 결정."""
+    """Resolve an entity's category, letting PredefinedType override the class mapping."""
     if predef_map:
         pt = getattr(entity, "PredefinedType", None)
         if pt is not None:
@@ -98,13 +96,18 @@ def resolve_entity_category(entity, ifc_class, mapping, predef_map):
 
 
 # ---------------------------------------------------------------------------
-# 지오메트리 → 점군(+텍스처 색상)
+# Geometry -> point cloud (+ texture color)
 # ---------------------------------------------------------------------------
-def sample_entity(verts, faces, tex, uv_scale, origin, spacing, noise_sigma=0.0):
+def sample_entity(verts, faces, tex, uv_scale, origin, spacing, noise_sigma=0.0,
+                  fx=None, dmap=None, fx_params=None):
     """
-    한 객체의 삼각형들을 포아송 샘플링하고 텍스처 색상을 입힌다.
-    noise_sigma > 0 이면 점 좌표에 가우시안 노이즈(m)를 더해 스캐너 오차를 모사한다.
-    반환: (points (N,3), colors (N,3) uint8, normals (N,3) float — 셰이딩용 면 법선)
+    Poisson-sample one object's triangles and tint the points with the texture.
+    noise_sigma > 0 adds Gaussian position noise (m) to mimic scanner error.
+
+    With fx (a shading_fx.load_fx_config result), also applies the cheap
+    photorealism effects: normal-map perturbation, cavity darkening, and edge AO.
+
+    Returns (points (N,3), colors (N,3) uint8, normals (N,3), ao (N,)).
     """
     tris_idx = faces.reshape(-1, 3)
     tri_v = verts[tris_idx]                       # (K,3,3)
@@ -116,7 +119,17 @@ def sample_entity(verts, faces, tex, uv_scale, origin, spacing, noise_sigma=0.0)
     areas = 0.5 * np.linalg.norm(np.cross(B - A, C - A), axis=1)
     points_per_area = 1.0 / (spacing ** 2)
 
-    pts_all, col_all, nrm_all = [], [], []
+    nrm_strength, detail_amt, ao_strength, convex_hl = fx_params or (0.0, 0.0, 0.0, 0.0)
+    use_bump = bool(fx and fx["normal_map"]["enabled"] and dmap is not None)
+    use_ao = bool(fx and fx["edge_ao"]["enabled"] and ao_strength > 0.0)
+
+    crease = height = None
+    if use_ao:
+        crease, height = shading_fx.build_creases(verts, tris_idx, normals, tri_v, fx["edge_ao"])
+        use_ao = crease is not None
+    ao_radius = fx["edge_ao"]["radius"] if fx else 0.1
+
+    pts_all, col_all, nrm_all, ao_all = [], [], [], []
     for k in range(len(tris_idx)):
         area = areas[k]
         if area <= 0:
@@ -130,28 +143,47 @@ def sample_entity(verts, faces, tex, uv_scale, origin, spacing, noise_sigma=0.0)
         u = 1.0 - sqrt_r1
         v = r2 * sqrt_r1
         w = 1.0 - u - v
-        p = u * A[k] + v * B[k] + w * C[k]        # (n_pts,3) 월드 좌표
+        p = u * A[k] + v * B[k] + w * C[k]        # (n_pts,3) world coords
 
         uv = uv_mapping.triplanar_uv(p, normals[k], uv_scale, origin)
         col = uv_mapping.sample_bilinear(tex, uv) if tex is not None else None
 
+        if use_bump:
+            n_pt = shading_fx.perturb_normal(normals[k], uv, dmap, nrm_strength)
+        else:
+            n_pt = np.broadcast_to(normals[k], (n_pts, 3))
+
+        # Cavity shadow multiplies the sampled color directly, leaving downstream untouched
+        if col is not None and use_bump and detail_amt > 0.0:
+            d = shading_fx.detail_shadow_factor(uv, dmap, detail_amt)
+            col = np.clip(col.astype(np.float32) * d[:, None], 0, 255).astype(np.uint8)
+
+        if use_ao:
+            bary = np.hstack([u, v, w])
+            ao_all.append(shading_fx.edge_ao_factor(bary, crease[k], height[k],
+                                                    ao_radius, ao_strength, convex_hl))
+        else:
+            ao_all.append(np.ones(n_pts, np.float32))
+
         pts_all.append(p)
-        nrm_all.append(np.broadcast_to(normals[k], (n_pts, 3)))
+        nrm_all.append(n_pt)
         if col is not None:
             col_all.append(col)
 
     if not pts_all:
-        return (np.empty((0, 3)), np.empty((0, 3), np.uint8), np.empty((0, 3)))
+        return (np.empty((0, 3)), np.empty((0, 3), np.uint8),
+                np.empty((0, 3)), np.empty(0, np.float32))
     pts = np.vstack(pts_all)
     nrms = np.vstack(nrm_all)
+    ao = np.concatenate(ao_all)
     cols = np.vstack(col_all) if col_all else np.empty((0, 3), np.uint8)
     if noise_sigma > 0.0 and pts.shape[0] > 0:
         pts = pts + np.random.normal(0.0, noise_sigma, pts.shape)
-    return pts, cols, nrms
+    return pts, cols, nrms, ao
 
 
 def entity_uvs(verts, faces, uv_scale, origin):
-    """FBX 용: 삼각형-정점별 UV (K,3,2) 계산."""
+    """Per triangle-vertex UVs (K,3,2) for the FBX exporter."""
     tris_idx = faces.reshape(-1, 3)
     tri_v = verts[tris_idx]
     normals = uv_mapping.triangle_normals(tri_v)
@@ -162,7 +194,7 @@ def entity_uvs(verts, faces, uv_scale, origin):
 
 
 # ---------------------------------------------------------------------------
-# LAS / LAZ 저장 (실 좌표 + RGB + classification)
+# LAS / LAZ writing (real coords + RGB + classification)
 # ---------------------------------------------------------------------------
 def save_point_cloud(points, colors, classes, out_base, formats=("las", "laz")):
     if points.shape[0] == 0:
@@ -171,8 +203,7 @@ def save_point_cloud(points, colors, classes, out_base, formats=("las", "laz")):
 
     mins = points.min(axis=0)
     header = laspy.LasHeader(point_format=3, version="1.2")
-    # 실 좌표를 mm 정밀도로 보존
-    header.scales = np.array([0.001, 0.001, 0.001])
+    header.scales = np.array([0.001, 0.001, 0.001])   # keep mm precision
     header.offsets = np.floor(mins)
 
     las = laspy.LasData(header)
@@ -180,7 +211,7 @@ def save_point_cloud(points, colors, classes, out_base, formats=("las", "laz")):
     las.y = points[:, 1]
     las.z = points[:, 2]
 
-    # 8-bit RGB → LAS 16-bit (value * 257)
+    # 8-bit RGB -> LAS 16-bit (value * 257)
     c = colors.astype(np.uint16) * 257
     las.red = c[:, 0]
     las.green = c[:, 1]
@@ -196,14 +227,13 @@ def save_point_cloud(points, colors, classes, out_base, formats=("las", "laz")):
 
 
 # ---------------------------------------------------------------------------
-# 광원 셰이딩 (텍스처 RGB 에 그림자/명암 부여)
+# Light shading (adds shading/contrast to the texture RGB)
 # ---------------------------------------------------------------------------
 def resolve_light(light_cfg, bbox_min, bbox_max):
     """
-    config 의 lighting 설정을 실제 월드 좌표 광원으로 해석.
-    position 은 bbox 정규화 좌표(0=min, 1=max, >1=바깥). 기본은 우측 상단.
-    반환: dict(type, world_pos, dir(directional), color(0..1), ambient, intensity, double_sided)
-          또는 비활성/무효 시 None.
+    Turn the config lighting block into a world-space light.
+    position is bbox-normalized (0=min, 1=max, >1=outside).
+    Returns a light dict, or None when disabled.
     """
     if not light_cfg or not light_cfg.get("enabled", True):
         return None
@@ -218,10 +248,10 @@ def resolve_light(light_cfg, bbox_min, bbox_max):
     direction = d / dn if dn > 0 else np.array([0.0, 0.0, 1.0])
 
     lc = np.asarray(light_cfg.get("color", [255, 255, 255]), float) / 255.0
-    lc = lc / max(lc.max(), 1e-6)   # 최대 채널=1 로 정규화(전체 어두워짐 방지, 색조만 반영)
+    lc = lc / max(lc.max(), 1e-6)   # max channel = 1: keep hue, don't darken
 
-    # point 광원 거리 감쇠(attenuation): att = 1/(kc + kl*dn + kq*dn²)
-    # dn = 광원~점 거리 / range. range 기본은 모델 bbox 대각선(스케일 무관 튜닝).
+    # Point-light attenuation: att = 1/(kc + kl*dn + kq*dn^2), dn = distance / range.
+    # range defaults to the model bbox diagonal so tuning is scale-independent.
     att_cfg = light_cfg.get("attenuation", {})
     att_cfg = att_cfg if isinstance(att_cfg, dict) else {}
     diag = float(np.linalg.norm(np.asarray(bbox_max, float) - np.asarray(bbox_min, float)))
@@ -249,7 +279,7 @@ def resolve_light(light_cfg, bbox_min, bbox_max):
 
 
 def point_attenuation(dist, att):
-    """point 광원 거리 감쇠 계수 (N,) 또는 스칼라 1.0. dist: 광원~점 거리(m)."""
+    """Point-light distance attenuation (N,), or scalar 1.0 when disabled."""
     if not att or not att.get("enabled", True):
         return 1.0
     dn = np.asarray(dist, float) / max(att.get("range", 1.0), 1e-9)
@@ -257,8 +287,14 @@ def point_attenuation(dist, att):
     return 1.0 / np.clip(denom, 1e-6, None)
 
 
-def apply_shading(colors, normals, points, light):
-    """Lambert 디퓨즈 셰이딩을 텍스처 색에 적용해 명암/그림자 느낌을 준다."""
+def apply_shading(colors, normals, points, light, ao=None, fx=None, space_lights=None):
+    """
+    Apply Lambert diffuse shading to the texture colors.
+
+    With fx, ambient becomes a hemisphere lerp, IfcSpace interior lights are added,
+    and edge AO occludes indirect light fully / direct light by direct_weight.
+    With fx=None the result is identical to plain Lambert (uniform ambient * light color).
+    """
     if light is None or colors.shape[0] == 0:
         return colors
     n = normals / np.clip(np.linalg.norm(normals, axis=1, keepdims=True), 1e-9, None)
@@ -268,32 +304,44 @@ def apply_shading(colors, normals, points, light):
         dist = np.linalg.norm(Lvec, axis=1)
         L = Lvec / np.clip(dist[:, None], 1e-9, None)
         ndotl = np.einsum("ij,ij->i", n, L)
-        att = point_attenuation(dist, light.get("attenuation"))   # (N,) 거리 감쇠
-    else:  # directional / sun (평행광 — 거리 감쇠 없음)
+        att = point_attenuation(dist, light.get("attenuation"))
+    else:  # directional / sun: parallel rays, no distance falloff
         ndotl = n @ light["dir"]
         att = 1.0
 
-    # 면 winding 이 뒤집힌 경우까지 고르게: double_sided 면 절대값, 아니면 그림자(0 클램프)
+    # double_sided uses |n.L| so flipped winding still lights up; otherwise clamp to 0
     ndotl = np.abs(ndotl) if light["double_sided"] else np.clip(ndotl, 0.0, None)
 
-    # 감쇠는 디퓨즈(광원 기여)에만 적용 — ambient 는 균일 유지
-    shade = light["ambient"] + light["intensity"] * ndotl * att  # (N,)
-    lit = colors.astype(np.float32) * shade[:, None] * light["color"][None, :]
+    direct = (light["intensity"] * ndotl * att)[:, None] * light["color"][None, :]   # (N,3)
+    # Without fx, hemisphere_ambient() returns the light color -> same as the old formula
+    ambient = light["ambient"] * shading_fx.hemisphere_ambient(n, fx, light["color"])
+
+    interior = (shading_fx.interior_contribution(points, n, space_lights, fx,
+                                                 double_sided=light["double_sided"])
+                if space_lights else 0.0)
+
+    if ao is not None and fx and fx["edge_ao"]["enabled"]:
+        a = ao[:, None]
+        dw = fx["edge_ao"]["direct_weight"]
+        ambient = ambient * a
+        interior = interior * a
+        direct = direct * (1.0 - dw * (1.0 - a))
+
+    lit = colors.astype(np.float32) * (ambient + direct + interior)
     return np.clip(lit, 0, 255).astype(np.uint8)
 
 
 # ---------------------------------------------------------------------------
-# 딥러닝 학습용 train 데이터셋 (클래스별 txt/laz + labels.json)
+# Training dataset (per-class txt/laz + labels.json)
 # ---------------------------------------------------------------------------
 def save_train_dataset(model_out_dir, source_name, category_list, cat_index,
-                       built, cfg, colors, noise, spacing, light=None):
+                       built, cfg, colors, noise, spacing, light=None, fx=None):
     """
     train/
-      labels.json               클래스 라벨링 기본 정보
-      <category>/
-        <category>.txt          CSV: x,y,z,red,green,blue,classification
-        <category>.laz          해당 클래스 점군만
-    built: {category: (points (N,3), colors (N,3) uint8)}  — 셰이딩까지 적용된 최종 색
+      labels.json               class label metadata
+      <category>/<category>.txt CSV: x,y,z,red,green,blue,classification
+      <category>/<category>.laz points of that class only
+    built: {category: (points (N,3), colors (N,3) uint8)} with shading already applied.
     """
     train_dir = Path(model_out_dir) / "train"
     train_dir.mkdir(parents=True, exist_ok=True)
@@ -309,6 +357,7 @@ def save_train_dataset(model_out_dir, source_name, category_list, cat_index,
                        else f", attenuation kc={light['attenuation']['constant']}"
                             f" kl={light['attenuation']['linear']} kq={light['attenuation']['quadratic']}"
                             f" range={light['attenuation']['range']:.2f}m")),
+        "shading_fx": shading_fx.describe(fx),
         "txt_format": "x,y,z,red,green,blue,classification (comma separated, header line)",
         "num_classes": 0,
         "total_points": 0,
@@ -326,13 +375,11 @@ def save_train_dataset(model_out_dir, source_name, category_list, cat_index,
         cat_dir = train_dir / cat
         cat_dir.mkdir(exist_ok=True)
 
-        # txt (CSV)
         txt_path = cat_dir / f"{cat}.txt"
         arr = np.hstack([pts, cols.astype(np.float64), cls[:, None].astype(np.float64)])
         np.savetxt(txt_path, arr, fmt="%.4f,%.4f,%.4f,%d,%d,%d,%d",
                    header="x,y,z,red,green,blue,classification", comments="")
 
-        # laz
         save_point_cloud(pts, cols, cls, str(cat_dir / cat), formats=("laz",))
 
         cat_cfg = cfg.get(cat, {})
@@ -359,7 +406,7 @@ def save_train_dataset(model_out_dir, source_name, category_list, cat_index,
 
 
 # ---------------------------------------------------------------------------
-# 메인 파이프라인
+# Main pipeline
 # ---------------------------------------------------------------------------
 def build_ifc_settings(deflection_tol):
     settings = ifcopenshell.geom.settings()
@@ -380,15 +427,15 @@ def build_ifc_settings(deflection_tol):
 def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scales,
                 transp, noise, textures, tex_arrays, settings, spacing, formats,
                 light_cfg=None, make_fbx=True, make_train=True, clean=True,
-                predef_map=None):
+                predef_map=None, fx=None, detail_maps=None):
     predef_map = predef_map or {}
+    detail_maps = detail_maps or {}
     filename = Path(ifc_file).stem
     print(f"\nProcessing: {filename}.ifc")
     model = ifcopenshell.open(ifc_file)
 
     model_out_dir = Path(output_dir) / filename
-    # 기본: 재생성 전에 이전 결과(빠진 클래스 train 폴더·옛 포맷·옛 텍스처 등 stale)를
-    # 모두 지워 항상 깨끗한 상태로 만든다. --no-clean 이면 덮어쓰기만.
+    # Wipe stale output (dropped class folders, old formats/textures) unless --no-clean
     if clean and model_out_dir.exists():
         shutil.rmtree(model_out_dir)
         print(f"  cleaned previous output: {model_out_dir}")
@@ -399,7 +446,7 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
 
     fbx = FbxSceneBuilder() if make_fbx else None
     if fbx:
-        # 출력 FBX 와 함께 배포 가능하도록 텍스처를 모델 폴더로 복사(상대경로 참조)
+        # Copy textures next to the FBX so it stays portable (relative references)
         tex_subdir = model_out_dir / "textures"
         tex_subdir.mkdir(exist_ok=True)
         for cat in category_list:
@@ -413,14 +460,17 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
             else:
                 fbx.set_material(cat, None, colors[cat], transp.get(cat, 0.0))
 
-    origin = np.zeros(3)  # triplanar UV 원점(월드) — 타일링은 월드에서 연속
-    cat_pts = {c: [] for c in category_list}   # category -> [(N,3), ...]
-    cat_col = {c: [] for c in category_list}   # category -> [(N,3) uint8, ...]
-    cat_nrm = {c: [] for c in category_list}   # category -> [(N,3), ...] 셰이딩용 법선
+    space_lights = shading_fx.collect_space_lights(model, settings, fx) if fx else []
+
+    origin = np.zeros(3)  # triplanar UV origin: tiling stays continuous in world space
+    cat_pts = {c: [] for c in category_list}
+    cat_col = {c: [] for c in category_list}
+    cat_nrm = {c: [] for c in category_list}
+    cat_ao = {c: [] for c in category_list}
     counter = {c: 0 for c in category_list}
     extracted = 0
 
-    # 매핑된 클래스 + 세부 재분류(predefined)에 등장하는 클래스 모두 순회
+    # Walk mapped classes plus any class referenced by a predefined rule
     supported = list(dict.fromkeys(list(mapping.keys())
                                    + [ic for (ic, _t) in predef_map.keys()]))
     pbar = tqdm(supported, desc="Extracting", leave=True)
@@ -428,21 +478,19 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
         try:
             entities = model.by_type(ifc_class)
         except RuntimeError:
-            # 해당 스키마(예: IFC2X3)에 없는 클래스는 건너뜀
-            continue
+            continue          # class absent from this schema (e.g. IFC2X3)
         if not entities:
             continue
         pbar.set_postfix({"class": ifc_class, "n": len(entities)})
 
         for entity in entities:
             try:
-                # 엔티티별 카테고리 결정(PredefinedType 세부 재분류 우선)
                 category = resolve_entity_category(entity, ifc_class, mapping, predef_map)
                 if category is None:
                     continue
                 tex = tex_arrays.get(category)
                 uv_scale = uv_scales.get(category, 2.0)
-                noise_sigma = noise.get(category, 0.0) * spacing  # 노이즈 표준편차(m)
+                noise_sigma = noise.get(category, 0.0) * spacing
 
                 shape = ifcopenshell.geom.create_shape(settings, entity)
                 verts = np.array(shape.geometry.verts, dtype=np.float64).reshape(-1, 3)
@@ -450,20 +498,23 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
                 if verts.shape[0] == 0 or faces.shape[0] == 0:
                     continue
 
-                # 점군 (텍스처 색상 + 클래스별 노이즈 + 셰이딩용 법선)
-                pts, cols, nrms = sample_entity(verts, faces, tex, uv_scale, origin,
-                                                spacing, noise_sigma=noise_sigma)
+                fx_params = (shading_fx.category_fx(fx, cfg.get(category))
+                             if fx else None)
+                pts, cols, nrms, ao = sample_entity(
+                    verts, faces, tex, uv_scale, origin, spacing,
+                    noise_sigma=noise_sigma, fx=fx,
+                    dmap=detail_maps.get(category), fx_params=fx_params)
                 if pts.shape[0] > 0:
                     cat_pts[category].append(pts)
                     cat_nrm[category].append(nrms)
+                    cat_ao[category].append(ao)
                     if cols.shape[0] == pts.shape[0]:
                         cat_col[category].append(cols)
-                    else:  # 텍스처 없음 → 카테고리 대표색
+                    else:  # no texture -> fall back to the category color
                         cat_col[category].append(
                             np.tile(np.array(colors[category], np.uint8),
                                     (pts.shape[0], 1)))
 
-                # FBX 메쉬
                 if fbx:
                     tris_idx, uvs = entity_uvs(verts, faces, uv_scale, origin)
                     counter[category] += 1
@@ -474,14 +525,14 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
             except Exception:
                 continue
 
-    # 카테고리별 배열 결합
-    built = {}   # category -> (points, colors, normals)
+    built = {}   # category -> (points, colors, normals, ao)
     for c in category_list:
         if cat_pts[c]:
-            built[c] = (np.vstack(cat_pts[c]), np.vstack(cat_col[c]), np.vstack(cat_nrm[c]))
+            built[c] = (np.vstack(cat_pts[c]), np.vstack(cat_col[c]),
+                        np.vstack(cat_nrm[c]), np.concatenate(cat_ao[c]))
 
     if built:
-        # 전체 bbox 로 광원 위치(정규화) 해석 → 클래스별 셰이딩 적용
+        # Resolve the normalized light position against the full model bbox
         all_min = np.min([v[0].min(axis=0) for v in built.values()], axis=0)
         all_max = np.max([v[0].max(axis=0) for v in built.values()], axis=0)
         light = resolve_light(light_cfg, all_min, all_max)
@@ -492,11 +543,13 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
                             f"kq={att['quadratic']} range={att['range']:.2f}m")
             print(f"  lighting: {light['type']} @ norm {list(light_cfg.get('position', [1.3,1.3,1.6]))}"
                   f" (ambient {light['ambient']}, intensity {light['intensity']}{att_str})")
+            if fx:
+                print(f"  shading fx: {shading_fx.describe(fx)}")
             for c in built:
-                pts, cols, nrms = built[c]
-                built[c] = (pts, apply_shading(cols, nrms, pts, light), nrms)
+                pts, cols, nrms, ao = built[c]
+                built[c] = (pts, apply_shading(cols, nrms, pts, light, ao=ao, fx=fx,
+                                               space_lights=space_lights), nrms, ao)
 
-        # 전체 통합 점군
         order = [c for c in category_list if c in built]
         points = np.vstack([built[c][0] for c in order])
         colors_arr = np.vstack([built[c][1] for c in order])
@@ -505,11 +558,10 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
         save_point_cloud(points, colors_arr, classes,
                          str(model_out_dir / filename), formats=formats)
 
-        # 딥러닝 세그먼테이션 학습용 클래스별 데이터셋 (셰이딩 적용된 색)
         if make_train:
             train_built = {c: (built[c][0], built[c][1]) for c in built}
             save_train_dataset(model_out_dir, filename, category_list, cat_index,
-                               train_built, cfg, colors, noise, spacing, light=light)
+                               train_built, cfg, colors, noise, spacing, light=light, fx=fx)
     else:
         print("  (no geometry extracted)")
 
@@ -527,32 +579,38 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
 def main():
     parser = argparse.ArgumentParser(
         description="IFC(BIM) -> textured FBX + RGB LAS/LAZ point cloud converter")
-    parser.add_argument("--input", "-i", default="./input", help="IFC 입력 폴더")
-    parser.add_argument("--output", "-o", default="./output", help="출력 폴더")
-    parser.add_argument("--config", "-c", default="./config.json", help="카테고리/텍스처 설정")
-    parser.add_argument("--textures", default="./textures", help="텍스처 캐시 폴더")
+    parser.add_argument("--input", "-i", default="./input", help="IFC input folder")
+    parser.add_argument("--output", "-o", default="./output", help="output folder")
+    parser.add_argument("--config", "-c", default="./config.json",
+                        help="category/texture configuration")
+    parser.add_argument("--textures", default="./textures", help="texture cache folder")
     parser.add_argument("--spacing", "-s", type=float, default=0.03,
-                        help="점군 샘플 간격(m) (default 0.03)")
+                        help="point cloud sample spacing in m (default 0.03)")
     parser.add_argument("--tolerance", "-t", type=float, default=0.005,
-                        help="메쉬 선형 편향 허용치(m) (default 0.005)")
+                        help="mesh linear deflection tolerance in m (default 0.005)")
     parser.add_argument("--formats", default="las,laz",
-                        help="점군 출력 포맷 콤마구분 (las,laz)")
+                        help="point cloud output formats, comma separated (las,laz)")
     parser.add_argument("--no-download", action="store_true",
-                        help="텍스처 온라인 다운로드 비활성(절차적 생성만)")
-    parser.add_argument("--no-fbx", action="store_true", help="FBX 생성 생략")
+                        help="disable online texture download (procedural only)")
+    parser.add_argument("--no-fbx", action="store_true", help="skip FBX generation")
     parser.add_argument("--no-train", action="store_true",
-                        help="클래스별 train 데이터셋 생성 생략")
-    parser.add_argument("--seed", type=int, default=42, help="샘플링 난수 시드")
+                        help="skip the per-class train dataset")
+    parser.add_argument("--seed", type=int, default=42, help="sampling random seed")
     parser.add_argument("--viewer", action="store_true",
-                        help="변환 후 output 폴더 웹 뷰어(Flask) 실행")
+                        help="launch the Flask web viewer after conversion")
     parser.add_argument("--viewer-only", action="store_true",
-                        help="변환 없이 웹 뷰어만 실행")
-    parser.add_argument("--port", type=int, default=5013, help="웹 뷰어 포트 (default 5013)")
+                        help="launch the web viewer without converting")
+    parser.add_argument("--port", type=int, default=5013, help="web viewer port (default 5013)")
     parser.add_argument("--texture-mode", choices=["realistic", "distinct"], default=None,
-                        help="텍스처 방식. distinct=클래스 구분용 고채도 (config settings.texture_mode 덮어씀)")
-    parser.add_argument("--no-shading", action="store_true", help="광원 셰이딩 비활성")
+                        help="texture style. distinct = high-saturation per class "
+                             "(overrides config settings.texture_mode)")
+    parser.add_argument("--no-shading", action="store_true", help="disable light shading")
+    parser.add_argument("--no-fx", action="store_true",
+                        help="disable the cheap photorealism effects (normal map / edge AO / "
+                             "hemisphere ambient / interior lights). "
+                             "Overrides config settings.shading_fx")
     parser.add_argument("--no-clean", action="store_true",
-                        help="모델 출력 폴더를 재생성 전에 지우지 않고 덮어쓰기만 (기본은 clean)")
+                        help="overwrite the model output folder instead of wiping it first")
     args = parser.parse_args()
 
     np.random.seed(args.seed)
@@ -580,6 +638,15 @@ def main():
             except Exception:
                 tex_arrays[cat] = None
 
+        # Preprocess the normal/cavity maps once per category
+        fx = None if args.no_fx else shading_fx.load_fx_config(settings_cfg)
+        detail_maps = {}
+        if fx and fx["normal_map"]["enabled"]:
+            for cat, arr in tex_arrays.items():
+                detail_maps[cat] = shading_fx.build_detail_map(
+                    arr, cavity_scale=fx["normal_map"]["cavity_scale"])
+            print(f"  [fx] detail maps built for {len(detail_maps)} categories")
+
         settings = build_ifc_settings(args.tolerance)
         formats = tuple(x.strip() for x in args.formats.split(",") if x.strip())
 
@@ -592,13 +659,15 @@ def main():
             print(f"Settings -> spacing {args.spacing}m | tolerance {args.tolerance}m | "
                   f"formats {formats} | fbx {not args.no_fbx} | train {not args.no_train} | "
                   f"shading {light_cfg is not None and light_cfg.get('enabled', True)} | "
-                  f"clean {not args.no_clean}")
+                  f"clean {not args.no_clean}\n"
+                  f"Shading fx -> {shading_fx.describe(fx)}")
             for ifc_file in ifc_files:
                 process_ifc(ifc_file, args.output, cfg, categories, mapping, colors,
                             uv_scales, transp, noise, textures, tex_arrays, settings,
                             args.spacing, formats, light_cfg=light_cfg,
                             make_fbx=not args.no_fbx, make_train=not args.no_train,
-                            clean=not args.no_clean, predef_map=predef_map)
+                            clean=not args.no_clean, predef_map=predef_map,
+                            fx=fx, detail_maps=detail_maps)
             print("\nAll done.")
 
     if args.viewer or args.viewer_only:

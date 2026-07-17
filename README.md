@@ -3,9 +3,9 @@
 A pipeline that parses and analyzes IFC models to perform the following steps in one pass: **1. automatically acquire material textures per IFC class → 2. generate a textured FBX with UV-mapped surfaces → 3. save real-coordinate RGB point clouds (LAS/LAZ) with texture colors → 4. produce per-class train datasets (txt/laz + labels.json) for deep-learning segmentation**. Results can be viewed instantly in the built-in **Flask web viewer (dark mode, Three.js)**.
 
 <p align="center">
-  <img src="./doc/img1.png" width="500"></img></br>
-  <img src="./doc/img2.png" width="500"></img></br>
-  <img src="./doc/img3.png" width="500"></img>
+  <img src="./doc/img1.png" height="200"></img></br>
+  <img src="./doc/img2.png" height="200"></img></br>
+  <img src="./doc/img3.png" height="200"></img>
 </p>
 
 *Point cloud conversion result of ac20_haus.ifc (front/top views) — plaster walls, glass windows, wooden doors, and metal beams are distinguished by texture color.*
@@ -41,9 +41,11 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
 
 | File | Role |
 |------|------|
+| `run.bat` / `run.sh` | Launcher scripts (auto-detect `venv_lmm` Python, forward args, `viewer`/`textures` subcommands) |
 | `convert_ifc_to_las.py` | Main CLI orchestrator (parse → FBX → LAS/LAZ) |
 | `texture_manager.py` | Acquires material textures per IFC class (ambientCG CC0 download / procedural fallback) |
 | `uv_mapping.py` | Triplanar UV generation + bilinear texture sampling |
+| `shading_fx.py` | Cheap game-engine photorealism: texture normal/cavity maps, crease-based edge AO, hemisphere ambient, IfcSpace interior point lights |
 | `fbx_exporter.py` | Textured FBX scene builder based on aspose.threed |
 | `webviewer.py` | Point cloud web viewer for the output folder (Flask + Three.js, dark mode) |
 | `templates/viewer.html` | Web viewer frontend (tree navigation / 3D canvas / render settings) |
@@ -77,6 +79,33 @@ pip install laspy[lazrs] numpy pillow tqdm aspose-3d matplotlib flask
 ---
 
 ## Usage
+
+### Launcher Scripts
+
+`run.bat` (cmd/PowerShell) and `run.sh` (bash/git-bash) locate the `venv_lmm` interpreter automatically,
+`cd` to the project folder, and forward every argument to `convert_ifc_to_las.py`.
+
+```powershell
+run.bat                          # convert everything in input/ with defaults
+run.bat --spacing 0.03 --no-fbx  # any option below is passed straight through
+run.bat viewer                   # web viewer only, no conversion
+run.bat viewer -p 5099           # subcommand args are forwarded too
+run.bat textures --no-download   # pre-generate textures only
+```
+
+```bash
+./run.sh                         # same interface on bash / git-bash
+./run.sh --no-fx
+PYTHON=/path/to/python ./run.sh  # override the interpreter
+```
+
+Set `PYTHON` (env var on bash, `set "PYTHON=..."` on cmd) to use a different interpreter.
+Both scripts propagate the Python exit code, so they compose in CI.
+
+> `run.bat` is intentionally kept pure ASCII — `cmd.exe` parses `.bat` files using the console
+> code page (CP949 on this machine), so UTF-8 comments get mangled into commands.
+
+### Direct Invocation
 
 ```powershell
 # Basic run: convert all IFC files in input/
@@ -112,6 +141,7 @@ python webviewer.py -o ./output -c ./config.json -p 5013
 | `--no-train` | off | Skip per-class train dataset generation |
 | `--texture-mode` | (config) | `realistic` / `distinct`. Overrides config `settings.texture_mode` |
 | `--no-shading` | off | Disable light-based shading |
+| `--no-fx` | off | Disable the cheap photorealism effects (normal map / edge AO / hemisphere ambient / interior lights). Overrides config `settings.shading_fx` |
 | `--no-clean` | off | Do not delete the model output folder before regenerating — only overwrite. By default `output/<model>/` is deleted and recreated on each run |
 | `--seed` | `42` | Random seed for sampling (reproducibility) |
 | `--viewer` | off | Launch web viewer after conversion |
@@ -131,7 +161,7 @@ python texture_manager.py --no-download                       # procedural gener
 
 Per category, specify a list of IFC classes, a representative color (RGB, used as fallback when no texture is available), a material search query, and UV scale.
 
-The top-level `settings` block (reserved key, not a category) defines the texture mode and lighting. All other keys are category definitions.
+The top-level `settings` block (reserved key, not a category) defines the texture mode, lighting, and the cheap photorealism effects (`shading_fx`). All other keys are category definitions.
 
 ```json
 {
@@ -152,6 +182,19 @@ The top-level `settings` block (reserved key, not a category) defines the textur
         "quadratic": 1.0,
         "range": 0
       }
+    },
+    "shading_fx": {
+      "enabled": true,
+      "normal_map":         { "enabled": true, "strength": 1.0, "detail_shadow": 0.5, "cavity_scale": 12 },
+      "edge_ao":            { "enabled": true, "angle_threshold_deg": 35, "smooth_deg": 25,
+                              "radius": 0.12, "strength": 0.55, "convex_highlight": 0.12,
+                              "boundary_as_crease": true, "direct_weight": 0.5 },
+      "hemisphere_ambient": { "enabled": true, "sky_color": [150, 175, 210],
+                              "ground_color": [95, 85, 75], "intensity": 1.0 },
+      "interior_light":     { "enabled": true, "source": "ifcspace", "color": [255, 236, 200],
+                              "intensity": 0.55, "height_ratio": 0.85, "margin": 0.3,
+                              "max_lights": 64, "min_volume": 1.0, "range_ratio": 0.5,
+                              "attenuation": { "constant": 1.0, "linear": 0.7, "quadratic": 1.8 } }
     }
   },
   "wall": {
@@ -160,7 +203,9 @@ The top-level `settings` block (reserved key, not a category) defines the textur
     "distinct_color": [205, 200, 190],
     "texture_query": "plaster wall",
     "uv_scale": 2.0,
-    "noise": 0.2
+    "noise": 0.2,
+    "normal_strength": 0.8,
+    "ao_strength": 1.0
   },
   "window": {
     "classes": ["IfcWindow"],
@@ -187,6 +232,8 @@ The top-level `settings` block (reserved key, not a category) defines the textur
 | `uv_scale` | Real-world distance (m) covered by one texture tile. Larger = coarser tiling |
 | `transparency` | (optional) FBX material transparency 0–1. For glass etc. |
 | `noise` | (optional) Point cloud noise level 0–1.0. Gaussian standard deviation `σ = noise × spacing` (m) to simulate scanner error. Set higher for highly reflective/refractive materials like glass |
+| `normal_strength` | (optional, default `1.0`) Per-category multiplier on `shading_fx.normal_map` strength (bump + cavity). Raise for rough materials (roof tiles `1.4`), lower for flat/glossy ones (glass `0.2`) |
+| `ao_strength` | (optional, default `1.0`) Per-category multiplier on `shading_fx.edge_ao` strength and convex highlight |
 
 **settings.texture_mode**
 
@@ -225,6 +272,41 @@ Not applied to `directional` lights.
 > Example: with defaults (`kc=1, kl=0.5, kq=1`), when the light–point distance equals `range` (dₙ=1), `att ≈ 0.4`; at half `range` (dₙ=0.5), `att ≈ 0.67` — a natural falloff.
 
 > Shading is **face-normal Lambert diffuse** (faces away from the light darken), not ray-traced cast shadows. Light coordinates are computed from the full model bbox, so consistent shading is applied across the entire point cloud.
+
+**settings.shading_fx** — Cheap real-time-game techniques that add photorealistic cues on top of the Lambert base
+(`shading_fx.py`). Everything reuses data the pipeline already has (texture RGB, face normals, barycentric
+coordinates), so no ray tracing or SSAO is involved. Disable entirely with `--no-fx` or `"enabled": false`.
+Measured cost on the bundled samples (3.2 M points): **41 s → 63 s** (~1.5×).
+
+| Sub-block | Technique | What it does |
+|-----------|-----------|--------------|
+| `normal_map` | Bump mapping + cavity map | Treats texture luminance as a heightmap; its gradient perturbs the face normal so mortar joints and wood grain catch light. The high-frequency component (height minus a blurred copy) darkens recessed pixels. Preprocessed **once per texture** |
+| `edge_ao` | Crease-based ambient occlusion | Classifies shared mesh edges as concave (valley) or convex (ridge) by dihedral angle, then darkens/brightens by distance to the edge. Distance is free: `d = barycentric[i] × (2·area / opposite edge length)` |
+| `hemisphere_ambient` | Hemisphere ambient lighting | Replaces the flat `ambient` constant with a sky/ground-color lerp driven by `n.z` — upward faces get sky light, downward faces get bounce. One lerp |
+| `interior_light` | IfcSpace point lights | Auto-places a point light near the ceiling of each `IfcSpace` bbox and applies distance-attenuated diffuse **only to points inside that space** (a miniature of tiled/clustered lighting) |
+
+| Key | Description |
+|-----|-------------|
+| `normal_map.strength` | Bump intensity. `0` = face normals only. Scaled per category by `normal_strength` |
+| `normal_map.detail_shadow` | Cavity darkening 0–1. Multiplied straight into the sampled color |
+| `normal_map.cavity_scale` | Blur radius divisor for cavity extraction. Larger = only finer detail counts as a cavity |
+| `edge_ao.angle_threshold_deg` | Dihedral angle above which an edge counts as a crease. Lower = more edges shaded |
+| `edge_ao.smooth_deg` | Ramp width above the threshold, so crease strength fades in instead of popping |
+| `edge_ao.radius` | AO falloff distance in meters: `exp(−d / radius)`. `0.12` ≈ a 12 cm shadow band along corners |
+| `edge_ao.strength` | Darkening at concave creases 0–1. Scaled per category by `ao_strength` |
+| `edge_ao.convex_highlight` | Brightening at convex creases (edge-wear look). `0` disables |
+| `edge_ao.boundary_as_crease` | Treat open (unshared) edges as concave creases. Set `false` if a model's meshes are poorly welded and everything looks too dark |
+| `edge_ao.direct_weight` | How much AO occludes **direct** sunlight, 0–1. AO always fully occludes ambient and interior light; `0.5` = direct light is half-occluded (physically loose but visually strong) |
+| `hemisphere_ambient.sky_color` / `ground_color` | Ambient hue for upward / downward facing normals. Normalized to max channel = 1 |
+| `hemisphere_ambient.intensity` | Overall multiplier on the hemisphere ambient term |
+| `interior_light.source` | `ifcspace` only for now. Models without `IfcSpace` silently get no interior lights |
+| `interior_light.intensity` | Diffuse intensity of each room light |
+| `interior_light.height_ratio` | Light height within the space bbox. `0.85` = near the ceiling |
+| `interior_light.margin` | Bbox expansion (m) for the light's influence volume, so walls bounding the room are lit |
+| `interior_light.max_lights` | Cap on light count (largest spaces win). Dropped spaces are reported on the console |
+| `interior_light.min_volume` | Skip spaces smaller than this (m³) — shafts, tiny voids |
+| `interior_light.range_ratio` | Attenuation reference distance as a fraction of the space diagonal |
+| `interior_light.attenuation` | `att = 1 / (constant + linear·dₙ + quadratic·dₙ²)`, `dₙ = distance / range` |
 
 Classes not present in the schema (e.g., `IfcFurniture` in IFC2X3) are automatically skipped.
 
@@ -278,7 +360,7 @@ Example `labels.json`:
 - **Color**: 8-bit RGB bilinearly sampled from the texture at each point's UV → (light shading applied) → LAS 16-bit (`×257`).
 - **classification**: Index (1~) based on the category order in `config.json`. Usable as a semantic label.
 - **Noise**: Gaussian noise with standard deviation `noise` (0–1) × `spacing` added to point coordinates per category (simulates real scan data).
-- **Shading**: Lambert diffuse shading based on `settings.lighting` applied to RGB (faces away from the light darken). Both the combined point cloud and train datasets are saved with shaded colors.
+- **Shading**: Lambert diffuse shading based on `settings.lighting` applied to RGB (faces away from the light darken), plus the `settings.shading_fx` effects (texture normal map, crease edge AO, hemisphere ambient, IfcSpace interior lights). Both the combined point cloud and train datasets are saved with shaded colors; `train/labels.json` records the active effects under `shading_fx`.
 
 Compatible with CloudCompare, QGIS, PDAL, potree, and similar tools.
 
@@ -340,6 +422,18 @@ This produces seamless tiling on BIM models with many axis-aligned faces such as
 | Textures not visible in FBX viewer | Verify that the `textures/` folder was moved together with the FBX file |
 | Point cloud is too large / slow | Increase the `--spacing` value (e.g., 0.05–0.1) |
 
+---
+
+## Revision History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| **0.4.0** | 2026-07-17 | **Cheap photorealism effects** (`shading_fx.py`, `settings.shading_fx`): texture normal/bump map with cavity shadows, crease-based edge AO (concave darkening + convex highlight), hemisphere ambient, and auto-placed IfcSpace interior point lights. Per-category `normal_strength` / `ao_strength` overrides; `--no-fx` to disable. Added `run.bat` / `run.sh` launchers with `viewer` / `textures` subcommands. Code comments and CLI help unified to English. |
+| **0.3.0** | 2026-07-15 | Lambert diffuse light shading of the point cloud RGB (`settings.lighting`: directional / point, bbox-normalized position, ambient, intensity, double_sided) with point-light distance attenuation (auto `range` from the model bbox diagonal). `distinct` texture mode for high-saturation per-class colors. `predefined` key to re-classify shared IFC classes by `PredefinedType` (fixes roofs modeled as `IfcSlab(ROOF)`). `texture_asset` key to pin an exact ambientCG asset ID; default texture mode set to `realistic`. Output folder is wiped before regeneration (`--no-clean` to opt out). |
+| **0.2.0** | 2026-07-12 | Per-class training dataset (`train/<class>/<class>.txt` + `.laz`, `train/labels.json`). Per-class Gaussian noise (`noise` × spacing) to simulate scanner error. Flask + Three.js web viewer on port 5013 (tree navigation, render settings, class legend, deep links). |
+| **0.1.0** | 2026-07-10 | Initial converter: IFC parsing via ifcopenshell, per-category ambientCG CC0 / procedural textures, triplanar UV projection, textured FBX export, and Poisson-sampled RGB LAS/LAZ point cloud with the category index in the classification field. |
+
+---
 
 # License
 MIT License

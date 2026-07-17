@@ -16,6 +16,47 @@
                 "quadratic": 1.0,
                 "range": 0
             }
+        },
+        "shading_fx": {
+            "enabled": true,
+            "normal_map": {
+                "enabled": true,
+                "strength": 1.0,
+                "detail_shadow": 0.5,
+                "cavity_scale": 12
+            },
+            "edge_ao": {
+                "enabled": true,
+                "angle_threshold_deg": 35,
+                "smooth_deg": 25,
+                "radius": 0.12,
+                "strength": 0.55,
+                "convex_highlight": 0.12,
+                "boundary_as_crease": true,
+                "direct_weight": 0.5
+            },
+            "hemisphere_ambient": {
+                "enabled": true,
+                "sky_color": [150, 175, 210],
+                "ground_color": [95, 85, 75],
+                "intensity": 1.0
+            },
+            "interior_light": {
+                "enabled": true,
+                "source": "ifcspace",
+                "color": [255, 236, 200],
+                "intensity": 0.55,
+                "height_ratio": 0.85,
+                "margin": 0.3,
+                "max_lights": 64,
+                "min_volume": 1.0,
+                "range_ratio": 0.5,
+                "attenuation": {
+                    "constant": 1.0,
+                    "linear": 0.7,
+                    "quadratic": 1.8
+                }
+            }
         }
     },
     "wall": {
@@ -24,7 +65,9 @@
         "distinct_color": [205, 200, 190],
         "texture_query": "plaster wall",
         "uv_scale": 2.0,
-        "noise": 0.2
+        "noise": 0.2,
+        "normal_strength": 0.8,
+        "ao_strength": 1.0
     },
     "column": {
         "classes": ["IfcColumn"],
@@ -58,7 +101,9 @@
         "texture_query": "roof tiles",
         "texture_asset": "RoofingTiles012A",
         "uv_scale": 1.5,
-        "noise": 0.3
+        "noise": 0.3,
+        "normal_strength": 1.4,
+        "ao_strength": 1.2
     },
     "door": {
         "classes": ["IfcDoor"],
@@ -76,7 +121,9 @@
         "texture_asset": "Facade006",
         "uv_scale": 2.0,
         "transparency": 0.55,
-        "noise": 0.5
+        "noise": 0.5,
+        "normal_strength": 0.2,
+        "ao_strength": 0.3
     },
     "stair": {
         "classes": ["IfcStair", "IfcStairFlight"],
