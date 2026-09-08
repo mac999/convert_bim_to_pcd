@@ -10,7 +10,8 @@ output 폴더의 점군(LAS/LAZ/TXT)을 웹 브라우저에서 탐색/관찰하�
   - 다크/라이트 테마 토글 (기본 다크)
 
 사용:
-  python webviewer.py -o ./output -c ./config.json -p 5013
+  python webviewer.py -o ./output -c ./config.json -p 5013 -l ko
+  python webviewer.py --lang en
   python convert_ifc_to_las.py --viewer-only
 """
 
@@ -84,7 +85,7 @@ def load_cloud(abs_path, rel_key):
 # ---------------------------------------------------------------------------
 # Flask 앱
 # ---------------------------------------------------------------------------
-def create_app(output_dir, config_path=None):
+def create_app(output_dir, config_path=None, lang="ko"):
     output_dir = Path(output_dir).resolve()
     app = Flask(__name__)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -107,7 +108,7 @@ def create_app(output_dir, config_path=None):
 
     @app.route("/")
     def index():
-        return render_template("viewer.html")
+        return render_template("viewer.html", lang=lang)
 
     @app.route("/api/tree")
     def api_tree():
@@ -219,8 +220,8 @@ def create_app(output_dir, config_path=None):
     return app
 
 
-def run_viewer(output_dir, config_path=None, port=5013, host="127.0.0.1"):
-    app = create_app(output_dir, config_path)
+def run_viewer(output_dir, config_path=None, port=5013, host="127.0.0.1", lang="ko"):
+    app = create_app(output_dir, config_path, lang=lang)
     print(f"\nPoint cloud web viewer: http://{host}:{port}  (output: {output_dir})")
     app.run(host=host, port=port, debug=False)
 
@@ -230,8 +231,10 @@ def main():
     ap.add_argument("--output", "-o", default="./output", help="point cloud output folder")
     ap.add_argument("--config", "-c", default="./config.json", help="category config file")
     ap.add_argument("--port", "-p", type=int, default=5013)
+    ap.add_argument("--lang", "-l", default="ko", choices=["ko", "en"],
+                    help="web viewer UI language (ko or en, default ko)")
     a = ap.parse_args()
-    run_viewer(a.output, a.config, a.port)
+    run_viewer(a.output, a.config, a.port, lang=a.lang)
 
 
 if __name__ == "__main__":

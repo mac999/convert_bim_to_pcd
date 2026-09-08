@@ -630,6 +630,8 @@ def main():
     parser.add_argument("--viewer-only", action="store_true",
                         help="launch the web viewer without converting")
     parser.add_argument("--port", type=int, default=5013, help="web viewer port (default 5013)")
+    parser.add_argument("--lang", default="ko", choices=["ko", "en"],
+                        help="web viewer UI language (ko or en, default ko)")
     parser.add_argument("--texture-mode", choices=["realistic", "distinct"], default=None,
                         help="texture style. distinct = high-saturation per class "
                              "(overrides config settings.texture_mode)")
@@ -701,7 +703,7 @@ def main():
 
     if args.viewer or args.viewer_only:
         from webviewer import run_viewer
-        run_viewer(args.output, args.config, port=args.port)
+        run_viewer(args.output, args.config, port=args.port, lang=args.lang)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" data-theme="dark">
+<html lang="{{ lang|default('ko') }}" data-lang="{{ lang|default('ko') }}" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -144,57 +144,58 @@ input[type=checkbox]{accent-color:var(--accent)}
 <body>
 <header>
   <div class="logo">◆ BIM <span>Point Cloud</span> Viewer</div>
-  <div class="file-label" id="file-label">파일을 선택하세요</div>
-  <button class="btn" id="btn-shot" title="현재 화면 PNG 저장">📷 캡처</button>
-  <button class="btn" id="btn-fit" title="점군에 카메라 맞춤">⤢ 뷰 리셋</button>
+  <div class="file-label" id="file-label" data-i18n="file_none">파일을 선택하세요</div>
+  <button class="btn" id="btn-shot" data-i18n-title="tip_shot" title="현재 화면 PNG 저장"><span data-i18n="btn_shot">📷 캡처</span></button>
+  <button class="btn" id="btn-fit" data-i18n-title="tip_fit" title="점군에 카메라 맞춤"><span data-i18n="btn_fit">⤢ 뷰 리셋</span></button>
   <button class="btn" id="btn-theme">🌙 다크</button>
+  <button class="btn" id="btn-lang" data-i18n-title="tip_lang" title="언어 전환">🌐 EN</button>
 </header>
 
 <nav id="sidebar">
-  <h3>Output 탐색기</h3>
-  <div class="tree" id="tree"><div class="muted">불러오는 중…</div></div>
+  <h3 data-i18n="explorer">Output 탐색기</h3>
+  <div class="tree" id="tree"><div class="muted" data-i18n="loading_tree">불러오는 중…</div></div>
 </nav>
 
 <main id="canvas-wrap">
-  <div id="empty-hint"><div class="big">☁</div><div>왼쪽 트리에서 점군 파일(las/laz/txt)을 클릭하세요</div></div>
-  <div id="overlay"><div class="spinner"></div><div id="overlay-msg">로딩 중…</div></div>
+  <div id="empty-hint"><div class="big">☁</div><div data-i18n="empty_hint">왼쪽 트리에서 점군 파일(las/laz/txt)을 클릭하세요</div></div>
+  <div id="overlay"><div class="spinner"></div><div id="overlay-msg" data-i18n="loading">로딩 중…</div></div>
   <div id="hud"></div>
 </main>
 
 <aside id="panel">
   <div class="card">
-    <h4>⚙ 렌더링 설정</h4>
-    <div class="row"><label>점 크기</label>
+    <h4 data-i18n="render_settings">⚙ 렌더링 설정</h4>
+    <div class="row"><label data-i18n="point_size">점 크기</label>
       <input type="range" id="pt-size" min="0.5" max="8" step="0.1" value="1.6">
       <span class="val" id="pt-size-v">1.6</span></div>
-    <div class="row"><label>투명도</label>
+    <div class="row"><label data-i18n="opacity">투명도</label>
       <input type="range" id="pt-alpha" min="0.05" max="1" step="0.05" value="1">
       <span class="val" id="pt-alpha-v">1.00</span></div>
-    <div class="row"><label>색상 모드</label>
+    <div class="row"><label data-i18n="color_mode">색상 모드</label>
       <select id="color-mode">
-        <option value="rgb">RGB (텍스처)</option>
-        <option value="class">클래스 라벨</option>
-        <option value="height">높이(Z)</option>
+        <option value="rgb" data-i18n="mode_rgb">RGB (텍스처)</option>
+        <option value="class" data-i18n="mode_class">클래스 라벨</option>
+        <option value="height" data-i18n="mode_height">높이(Z)</option>
       </select></div>
-    <div class="row"><label>최대 점수</label>
+    <div class="row"><label data-i18n="max_points">최대 점수</label>
       <select id="max-pts">
-        <option value="200000">20만</option>
-        <option value="500000">50만</option>
-        <option value="1000000">100만</option>
-        <option value="2000000" selected>200만</option>
-        <option value="5000000">500만</option>
+        <option value="200000" data-i18n="n200k">20만</option>
+        <option value="500000" data-i18n="n500k">50만</option>
+        <option value="1000000" data-i18n="n1m">100만</option>
+        <option value="2000000" selected data-i18n="n2m">200만</option>
+        <option value="5000000" data-i18n="n5m">500만</option>
       </select></div>
-    <div class="row"><label>그리드</label><input type="checkbox" id="chk-grid" checked></div>
-    <div class="row"><label>좌표축</label><input type="checkbox" id="chk-axes" checked></div>
+    <div class="row"><label data-i18n="grid">그리드</label><input type="checkbox" id="chk-grid" checked></div>
+    <div class="row"><label data-i18n="axes">좌표축</label><input type="checkbox" id="chk-axes" checked></div>
   </div>
 
   <div class="card">
-    <h4>ℹ 기본 정보</h4>
+    <h4 data-i18n="basic_info">ℹ 기본 정보</h4>
     <div class="kv" id="info-kv"><div class="muted" style="grid-column:1/3">-</div></div>
   </div>
 
   <div class="card">
-    <h4>🏷 클래스 범례 <span style="font-weight:400;color:var(--fg2);font-size:10px">(클릭: 표시/숨김)</span></h4>
+    <h4><span data-i18n="legend">🏷 클래스 범례</span> <span style="font-weight:400;color:var(--fg2);font-size:10px" data-i18n="legend_hint">(클릭: 표시/숨김)</span></h4>
     <div id="legend"><div class="muted">-</div></div>
   </div>
 </aside>
@@ -211,6 +212,74 @@ const state = {
 const fmtN = n => n.toLocaleString('ko-KR');
 const fmtB = b => b>1048576 ? (b/1048576).toFixed(1)+' MB' : (b/1024).toFixed(0)+' KB';
 const $ = id => document.getElementById(id);
+
+// ---------------- i18n ----------------
+const I18N = {
+  ko: {
+    file_none:"파일을 선택하세요", btn_shot:"📷 캡처", btn_fit:"⤢ 뷰 리셋",
+    tip_shot:"현재 화면 PNG 저장", tip_fit:"점군에 카메라 맞춤", tip_lang:"언어 전환",
+    theme_dark:"🌙 다크", theme_light:"☀️ 라이트", lang_btn:"🌐 EN",
+    explorer:"Output 탐색기", loading_tree:"불러오는 중…", loading:"로딩 중…",
+    downloading:"다운로드 중…", parsing:"파싱 중…",
+    empty_hint:"왼쪽 트리에서 점군 파일(las/laz/txt)을 클릭하세요",
+    render_settings:"⚙ 렌더링 설정", point_size:"점 크기", opacity:"투명도",
+    color_mode:"색상 모드", mode_rgb:"RGB (텍스처)", mode_class:"클래스 라벨", mode_height:"높이(Z)",
+    max_points:"최대 점수", n200k:"20만", n500k:"50만", n1m:"100만", n2m:"200만", n5m:"500만",
+    grid:"그리드", axes:"좌표축", basic_info:"ℹ 기본 정보",
+    legend:"🏷 클래스 범례", legend_hint:"(클릭: 표시/숨김)",
+    no_clouds:"output 폴더에 점군이 없습니다",
+    k_file:"파일", k_format:"형식", k_size:"용량", k_total:"원본 점수", k_loaded:"로드 점수",
+    k_dims:"크기(m)", k_nclass:"클래스 수",
+    lbl_header:"— train 라벨 —", k_src_ifc:"소스 IFC", k_total_pts:"총 점수", k_created:"생성일",
+    hud:(m,n,t)=>`표시 ${m} / 로드 ${n} / 원본 ${t} pts`,
+    err_load:"점군 로드 실패: ", tip_kw:"Name 키워드로 정의된 사용자 클래스",
+    tip_noise:"노이즈 수준", cls_user:(n)=>`사용자 정의 클래스 "${n}"`,
+    locale:"ko-KR"
+  },
+  en: {
+    file_none:"Select a file", btn_shot:"📷 Capture", btn_fit:"⤢ Reset view",
+    tip_shot:"Save the current view as PNG", tip_fit:"Fit camera to the point cloud",
+    tip_lang:"Switch language",
+    theme_dark:"🌙 Dark", theme_light:"☀️ Light", lang_btn:"🌐 KO",
+    explorer:"Output explorer", loading_tree:"Loading…", loading:"Loading…",
+    downloading:"Downloading…", parsing:"Parsing…",
+    empty_hint:"Pick a point cloud file (las/laz/txt) from the tree on the left",
+    render_settings:"⚙ Render settings", point_size:"Point size", opacity:"Opacity",
+    color_mode:"Color mode", mode_rgb:"RGB (texture)", mode_class:"Class label", mode_height:"Height (Z)",
+    max_points:"Max points", n200k:"200K", n500k:"500K", n1m:"1M", n2m:"2M", n5m:"5M",
+    grid:"Grid", axes:"Axes", basic_info:"ℹ Basic info",
+    legend:"🏷 Class legend", legend_hint:"(click to show/hide)",
+    no_clouds:"No point clouds in the output folder",
+    k_file:"File", k_format:"Format", k_size:"Size", k_total:"Source points", k_loaded:"Loaded points",
+    k_dims:"Extent (m)", k_nclass:"Classes",
+    lbl_header:"— train labels —", k_src_ifc:"Source IFC", k_total_pts:"Total points", k_created:"Created",
+    hud:(m,n,t)=>`shown ${m} / loaded ${n} / source ${t} pts`,
+    err_load:"Failed to load point cloud: ", tip_kw:"User class defined by a Name keyword",
+    tip_noise:"Noise level", cls_user:(n)=>`User-defined class "${n}"`,
+    locale:"en-US"
+  }
+};
+let LANG = (new URLSearchParams(location.search).get('lang'))
+        || localStorage.getItem('viewerLang')
+        || document.documentElement.dataset.lang || 'ko';
+if (!I18N[LANG]) LANG = 'ko';
+const t = (k, ...a) => { const v = I18N[LANG][k]; return typeof v === 'function' ? v(...a) : (v ?? k); };
+
+function applyI18n(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    if (el.id === 'file-label' && state.header) return;
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{
+    el.title = t(el.dataset.i18nTitle);
+  });
+  const th = document.getElementById('btn-theme');
+  th.textContent = document.documentElement.dataset.theme==='dark' ? t('theme_dark') : t('theme_light');
+  document.getElementById('btn-lang').textContent = t('lang_btn');
+  if (state.header) { renderInfo(); renderLegend(); updateHud(); }
+  else document.getElementById('file-label').textContent = t('file_none');
+}
 
 // ---------------- three.js 기본 ----------------
 const wrap = $('canvas-wrap');
@@ -309,7 +378,14 @@ function buildCloud(){
   });
   state.points = new THREE.Points(geo, mat);
   scene.add(state.points);
-  $('hud').textContent = `표시 ${fmtN(m)} / 로드 ${fmtN(n)} / 원본 ${fmtN(state.header.total)} pts`;
+  state.hudCounts = [m, n];
+  updateHud();
+}
+
+function updateHud(){
+  if (!state.header || !state.hudCounts) return;
+  const [m, n] = state.hudCounts;
+  $('hud').textContent = t('hud', fmtN(m), fmtN(n), fmtN(state.header.total));
 }
 
 function fitView(){
@@ -333,13 +409,13 @@ function fitView(){
 
 // ---------------- 데이터 로드 ----------------
 async function loadCloud(path, nodeEl){
-  $('overlay').classList.add('show'); $('overlay-msg').textContent='다운로드 중…';
+  $('overlay').classList.add('show'); $('overlay-msg').textContent=t('downloading');
   $('empty-hint').style.display='none';
   try{
     const res = await fetch(`/api/points?path=${encodeURIComponent(path)}&max=${$('max-pts').value}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const buf = await res.arrayBuffer();
-    $('overlay-msg').textContent='파싱 중…';
+    $('overlay-msg').textContent=t('parsing');
     const dv = new DataView(buf);
     const hlen = dv.getUint32(0,true);
     const header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,hlen)));
@@ -357,7 +433,7 @@ async function loadCloud(path, nodeEl){
 
     buildCloud(); fitView(); renderInfo(); renderLegend();
   }catch(e){
-    alert('점군 로드 실패: '+e.message);
+    alert(t('err_load')+e.message);
   }finally{
     $('overlay').classList.remove('show');
   }
@@ -370,13 +446,13 @@ function renderInfo(extra){
   if (!state.header){ kv.innerHTML='<div class="muted" style="grid-column:1/3">-</div>'; return; }
   const h = state.header;
   const dx=(h.bbox_max[0]-h.bbox_min[0]).toFixed(2), dy=(h.bbox_max[1]-h.bbox_min[1]).toFixed(2), dz=(h.bbox_max[2]-h.bbox_min[2]).toFixed(2);
-  add('파일', h.name);
-  add('형식', h.format.toUpperCase());
-  add('용량', fmtB(h.size));
-  add('원본 점수', fmtN(h.total));
-  add('로드 점수', fmtN(h.count));
-  add('크기(m)', `${dx} × ${dy} × ${dz}`);
-  add('클래스 수', Object.keys(h.classes).length);
+  add(t('k_file'), h.name);
+  add(t('k_format'), h.format.toUpperCase());
+  add(t('k_size'), fmtB(h.size));
+  add(t('k_total'), fmtN(h.total));
+  add(t('k_loaded'), fmtN(h.count));
+  add(t('k_dims'), `${dx} × ${dy} × ${dz}`);
+  add(t('k_nclass'), Object.keys(h.classes).length);
   if (extra) for (const [k,v] of extra) add(k,v);
 }
 
@@ -395,13 +471,13 @@ function renderLegend(){
       // Keyword-only categories are user-defined classes named by config.
       const kw = cat.name_keywords||{};
       const kwTxt = Object.entries(kw).map(([c,ws])=>`${c} Name~[${ws.join('|')}]`).join(', ');
-      const clsTxt = cat.user_defined ? `사용자 정의 클래스 "${cat.name}"` : (cat.ifc_classes||[]).join(', ');
+      const clsTxt = cat.user_defined ? t('cls_user', cat.name) : (cat.ifc_classes||[]).join(', ');
       div.title = clsTxt + (kwTxt ? `\n${kwTxt}` : '');
     }
     div.innerHTML = `<span class="dot" style="background:rgb(${c})"></span>
       <span>${cat?cat.name:'class '+idx}</span>
-      ${cat&&cat.user_defined?`<span class="nz" title="Name 키워드로 정의된 사용자 클래스">kw</span>`:''}
-      ${cat&&cat.noise?`<span class="nz" title="노이즈 수준">nz ${cat.noise}</span>`:''}
+      ${cat&&cat.user_defined?`<span class="nz" title="${t('tip_kw')}">kw</span>`:''}
+      ${cat&&cat.noise?`<span class="nz" title="${t('tip_noise')}">nz ${cat.noise}</span>`:''}
       <span class="cnt">${fmtN(cnt)}</span>`;
     div.onclick = ()=>{
       state.hidden.has(idx) ? state.hidden.delete(idx) : state.hidden.add(idx);
@@ -447,11 +523,11 @@ async function showLabels(path){
   try{
     const res = await fetch(`/api/labels?path=${encodeURIComponent(path)}`);
     const lb = await res.json();
-    renderInfo([['—','— train 라벨 —'],
-      ['소스 IFC', lb.source_ifc||'-'],
-      ['클래스 수', lb.num_classes],
-      ['총 점수', fmtN(lb.total_points||0)],
-      ['생성일', (lb.created||'').replace('T',' ')]]);
+    renderInfo([['—', t('lbl_header')],
+      [t('k_src_ifc'), lb.source_ifc||'-'],
+      [t('k_nclass'), lb.num_classes],
+      [t('k_total_pts'), fmtN(lb.total_points||0)],
+      [t('k_created'), (lb.created||'').replace('T',' ')]]);
   }catch(e){}
 }
 
@@ -460,7 +536,7 @@ async function init(){
   for (const c of cfg.categories) state.catByIndex[c.index]=c;
   const tree = await (await fetch('/api/tree')).json();
   const el = $('tree'); el.innerHTML='';
-  if (!tree.length){ el.innerHTML='<div class="muted">output 폴더에 점군이 없습니다</div>'; return; }
+  if (!tree.length){ el.innerHTML='<div class="muted" data-i18n="no_clouds">output 폴더에 점군이 없습니다</div>'; return; }
   const ul = document.createElement('ul');
   renderTree(tree, ul); el.appendChild(ul);
   // 딥링크: ?load=<상대경로>&max=<점수> 로 바로 로드
@@ -469,7 +545,7 @@ async function init(){
   if (qs.get('max')){
     const sel=$('max-pts'); const v=qs.get('max');
     if (![...sel.options].some(o=>o.value===v)){
-      const o=document.createElement('option'); o.value=v; o.textContent=(+v).toLocaleString('ko-KR'); sel.appendChild(o);
+      const o=document.createElement('option'); o.value=v; o.textContent=(+v).toLocaleString(t('locale')); sel.appendChild(o);
     }
     sel.value=v;
   }
@@ -497,9 +573,15 @@ $('btn-theme').onclick = ()=>{
   const root=document.documentElement;
   const next = root.dataset.theme==='dark' ? 'light' : 'dark';
   root.dataset.theme=next;
-  $('btn-theme').textContent = next==='dark' ? '🌙 다크' : '☀️ 라이트';
+  $('btn-theme').textContent = next==='dark' ? t('theme_dark') : t('theme_light');
   canvasBg();
 };
+$('btn-lang').onclick = ()=>{
+  LANG = LANG==='ko' ? 'en' : 'ko';
+  localStorage.setItem('viewerLang', LANG);
+  applyI18n();
+};
+applyI18n();
 </script>
 </body>
 </html>
