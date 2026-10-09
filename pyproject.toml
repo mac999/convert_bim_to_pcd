@@ -24,7 +24,6 @@ dependencies = [
     "numpy",
     "pillow",
     "tqdm",
-    "aspose-3d",
     "flask",
 ]
 
@@ -48,3 +47,6 @@ py-modules = [
     "fbx_exporter",
     "webviewer",
 ]
+
+[project.optional-dependencies]
+fbx = ["aspose-3d"]

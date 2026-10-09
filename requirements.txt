@@ -6,5 +6,8 @@ laspy[lazrs]>=2.5
 numpy
 pillow
 tqdm
-aspose-3d
 flask
+
+# Optional: FBX export only (convert_ifc_to_las.py without --no-fbx).
+# The IFC -> point cloud path and the web viewer do not need it.
+#   pip install aspose-3d

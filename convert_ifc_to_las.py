@@ -30,7 +30,6 @@ from tqdm import tqdm
 import texture_manager
 import uv_mapping
 import shading_fx
-from fbx_exporter import FbxSceneBuilder
 
 
 # ---------------------------------------------------------------------------
@@ -471,7 +470,10 @@ def process_ifc(ifc_file, output_dir, cfg, categories, mapping, colors, uv_scale
     category_list = list(categories)
     cat_index = {c: i + 1 for i, c in enumerate(category_list)}  # classification (1..)
 
-    fbx = FbxSceneBuilder() if make_fbx else None
+    fbx = None
+    if make_fbx:
+        from fbx_exporter import FbxSceneBuilder  # needs aspose-3d
+        fbx = FbxSceneBuilder()
     if fbx:
         # Copy textures next to the FBX so it stays portable (relative references)
         tex_subdir = model_out_dir / "textures"
