@@ -26,6 +26,7 @@ body{
   grid-template-columns:270px 1fr 290px;
   grid-template-areas:"header header header" "sidebar canvas panel";
 }
+
 /* ---------- header ---------- */
 header{
   grid-area:header; display:flex; align-items:center; gap:12px;
@@ -133,6 +134,56 @@ input[type=checkbox]{accent-color:var(--accent)}
 ::-webkit-scrollbar{width:9px; height:9px}
 ::-webkit-scrollbar-thumb{background:var(--border); border-radius:5px}
 ::-webkit-scrollbar-track{background:transparent}
+/* ---------- mobile: sidebar and panel become drawers ---------- */
+.mobile-only{display:none}
+@media (max-width: 860px){
+  html,body{height:100dvh}
+  body{
+    /* minmax(0,...) lets the column shrink below the header's min-content;
+       a plain 1fr resolves to minmax(auto,1fr) and overflows the viewport. */
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr);
+    grid-template-areas:"header" "canvas";
+  }
+  header{
+    flex-wrap:nowrap; gap:6px; padding:0 8px;
+    padding-top:env(safe-area-inset-top);
+    min-height:52px; overflow-x:auto; scrollbar-width:none;
+  }
+  header::-webkit-scrollbar{display:none}
+  header .logo{font-size:13px; flex-shrink:0}
+  header .file-label{display:none}
+  .mobile-only{display:inline-block}
+  .btn{padding:8px 10px; font-size:13px; flex-shrink:0; min-height:36px}
+
+  #sidebar,#panel{
+    position:fixed; top:0; bottom:0; z-index:40; width:min(82vw,320px);
+    box-shadow:var(--shadow); transition:transform .22s ease;
+    padding-top:calc(env(safe-area-inset-top) + 8px);
+    padding-bottom:calc(env(safe-area-inset-bottom) + 8px);
+    overscroll-behavior:contain;
+  }
+  #sidebar{left:0; transform:translateX(-102%); border-right:1px solid var(--border)}
+  #panel{right:0; transform:translateX(102%); border-left:1px solid var(--border)}
+  #sidebar.open,#panel.open{transform:translateX(0)}
+
+  #backdrop{
+    position:fixed; inset:0; z-index:35; background:rgba(0,0,0,.5);
+    -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  }
+  #backdrop[hidden]{display:none}
+
+  #canvas-wrap{grid-area:canvas; min-width:0; min-height:0; overflow:hidden}
+  #hud{
+    left:8px; right:8px; bottom:calc(env(safe-area-inset-bottom) + 8px);
+    font-size:10px; white-space:normal; line-height:1.4;
+  }
+  /* iOS zooms the page when a focused control is under 16px */
+  select,input[type="text"],input[type="number"]{font-size:16px}
+  input[type="range"]{height:28px}
+  .tnode{padding:8px 8px; font-size:14px}
+  .legend-item{padding:7px 6px}
+}
 </style>
 <script type="importmap">
 {"imports":{
@@ -143,12 +194,14 @@ input[type=checkbox]{accent-color:var(--accent)}
 </head>
 <body>
 <header>
-  <div class="logo">◆ BIM <span>Point Cloud</span> Viewer</div>
+  <button class="btn mobile-only" id="btn-tree" data-i18n-title="explorer" title="Output 탐색기" aria-expanded="false">☰</button>
+<div class="logo">◆ BIM <span>Point Cloud</span> Viewer</div>
   <div class="file-label" id="file-label" data-i18n="file_none">파일을 선택하세요</div>
   <button class="btn" id="btn-shot" data-i18n-title="tip_shot" title="현재 화면 PNG 저장"><span data-i18n="btn_shot">📷 캡처</span></button>
   <button class="btn" id="btn-fit" data-i18n-title="tip_fit" title="점군에 카메라 맞춤"><span data-i18n="btn_fit">⤢ 뷰 리셋</span></button>
   <button class="btn" id="btn-theme">🌙 다크</button>
   <button class="btn" id="btn-lang" data-i18n-title="tip_lang" title="언어 전환">🌐 EN</button>
+<button class="btn mobile-only" id="btn-panel" data-i18n-title="render_settings" title="렌더링 설정" aria-expanded="false">⚙</button>
 </header>
 
 <nav id="sidebar">
@@ -156,6 +209,7 @@ input[type=checkbox]{accent-color:var(--accent)}
   <div class="tree" id="tree"><div class="muted" data-i18n="loading_tree">불러오는 중…</div></div>
 </nav>
 
+<div id="backdrop" hidden></div>
 <main id="canvas-wrap">
   <div id="empty-hint"><div class="big">☁</div><div data-i18n="empty_hint">왼쪽 트리에서 점군 파일(las/laz/txt)을 클릭하세요</div></div>
   <div id="overlay"><div class="spinner"></div><div id="overlay-msg" data-i18n="loading">로딩 중…</div></div>
@@ -582,6 +636,43 @@ $('btn-lang').onclick = ()=>{
   applyI18n();
 };
 applyI18n();
+</script>
+<script>
+(function () {
+  var side = document.getElementById('sidebar');
+  var panel = document.getElementById('panel');
+  var back = document.getElementById('backdrop');
+  var bTree = document.getElementById('btn-tree');
+  var bPanel = document.getElementById('btn-panel');
+
+  function close() {
+    side.classList.remove('open');
+    panel.classList.remove('open');
+    back.hidden = true;
+    bTree.setAttribute('aria-expanded', 'false');
+    bPanel.setAttribute('aria-expanded', 'false');
+  }
+  function toggle(el, btn) {
+    var open = !el.classList.contains('open');
+    close();
+    if (open) {
+      el.classList.add('open');
+      back.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+  bTree.addEventListener('click', function () { toggle(side, bTree); });
+  bPanel.addEventListener('click', function () { toggle(panel, bPanel); });
+  back.addEventListener('click', close);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  // picking a point cloud on a phone should reveal the result, not the tree
+  document.getElementById('tree').addEventListener('click', function (e) {
+    if (e.target.closest('.tnode') && window.matchMedia('(max-width:860px)').matches) close();
+  });
+  window.addEventListener('resize', function () {
+    if (!window.matchMedia('(max-width:860px)').matches) close();
+  });
+})();
 </script>
 </body>
 </html>
