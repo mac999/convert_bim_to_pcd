@@ -11,7 +11,8 @@ A pipeline that parses and analyzes IFC models to perform the following steps in
   <img src="./doc/img5.png" height="245"></img>
 </p>
 
-*Point cloud conversion result of ac20_haus.ifc (front/top views) — plaster walls, glass windows, wooden doors, and metal beams are distinguished by texture color.*
+*Point cloud conversion result of ac20_haus.ifc (front/top views) — plaster walls, glass windows, wooden doors, and metal beams are distinguished by texture color.* 
+- Webview mode demo: [AWS server link](https://d1qo3symbvioxm.cloudfront.net/).
 
 ---
 
